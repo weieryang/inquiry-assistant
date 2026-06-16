@@ -195,7 +195,7 @@
             document.getElementById('currentCustomerLabel').textContent=id;
             const s=getSessions();currentSession=s[id]||{messages:[]};renderMessages();renderSessionList();
         }
-        function deleteSession(id){if(!confirm('确定删除？'))return;const s=getSessions();delete s[id);saveSessions(s);if(id===currentCustomerId){currentCustomerId='';currentSession={messages:[]};document.getElementById('currentCustomerLabel').textContent='未选择客户';renderMessages();}renderSessionList();}
+        function deleteSession(id){if(!confirm('确定删除？'))return;const s=getSessions();delete s[id];saveSessions(s);if(id===currentCustomerId){currentCustomerId='';currentSession={messages:[]};document.getElementById('currentCustomerLabel').textContent='未选择客户';renderMessages();}renderSessionList();}
         function clearCurrentSession(){if(!currentCustomerId){toast('请先选择客户');return;}deleteSession(currentCustomerId);}
 
         function renderMessages(){
