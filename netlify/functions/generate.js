@@ -1,3 +1,5 @@
+const https = require('https');
+
 exports.handler = async (event) => {
     const headers = {
         'Access-Control-Allow-Origin': '*',
@@ -27,32 +29,36 @@ exports.handler = async (event) => {
 
         const MODEL = model === 'pro' ? 'deepseek-v4-pro' : 'deepseek-v4-flash';
 
-        const langNames = { en: 'English', es: 'Espa帽ol', ru: '袪褍褋褋泻懈泄', ar: '丕賱毓乇亘賷丞', pt: 'Portugu锚s', fr: 'Fran莽ais', de: 'Deutsch', tr: 'T眉rk莽e' };
-        const toneNames = { professional: '涓撲笟鍟嗗姟锛堟寮忋€佷弗璋級', friendly: '鐑儏鍙嬪ソ锛堜翰鍒囥€佹湁娓╁害锛?, concise: '绠€娲侀珮鏁堬紙鐩村涓婚锛? };
-        const platformNames = { alibaba: '闃块噷宸村反鍥介檯绔?, mic: '涓浗鍒堕€犵綉', '1688': '1688鎵瑰彂骞冲彴' };
+        const langNames = { en: 'English', es: 'Español', ru: 'Русский', ar: 'العربية', pt: 'Português', fr: 'Français', de: 'Deutsch', tr: 'Türkçe' };
+        const toneNames = { professional: '专业商务', friendly: '热情友好', concise: '简洁高效' };
+        const platformNames = { alibaba: '阿里巴巴国际站', mic: '中国制造网', '1688': '1688批发平台' };
 
-        const systemPrompt = `浣犳槸涓€涓笓涓氱殑璺ㄥ鐢靛晢璇㈢洏鍥炲涓撳锛屼笓闂ㄤ负寤烘潗/瀹跺眳鍝佺被鐨勫崠瀹舵湇鍔°€?
-## 鍥炲瑕佹眰
-- 鍥炲璇█锛?{langNames[lang] || 'English'}
-- 璇皵椋庢牸锛?{toneNames[tone] || '涓撲笟鍟嗗姟'}
-- 骞冲彴锛?{platformNames[platform] || '鍥介檯绔?}
-- 鍥炲鎺у埗鍦?00-500瀛楋紝涓撲笟鏈夋俯搴?- 浣跨敤鍒楄〃鍒嗙偣璇存槑锛屾彁楂樺彲璇绘€?- 鏈熬鍔犲叆 [Your Name] [Company Name] 鍗犱綅绗?${priceRange ? `- 閫傚綋缁欏嚭鍙傝€冧环鏍煎尯闂?${priceRange}锛屼絾娉ㄦ槑鍏蜂綋闇€纭` : ''}
+        const systemPrompt = `You are a professional cross-border e-commerce inquiry reply expert for building materials/home products.
 
-## 琛屼笟鐭ヨ瘑
-- 寤烘潗/瀹跺眳鍝佺被涓撳锛堢摲鐮栥€侀棬绐椼€佺伅鍏枫€佸崼娴达級
-- 鐔熸倝FOB/CIF/DDP绛夎锤鏄撴潯娆?- 浜嗚ВCE/ISO/SGS绛夎璇?
-## 浜у搧鐭ヨ瘑搴?${knowledgeBase || '锛堟殏鏃狅紝璇风敤閫氱敤涓撲笟鍥炲锛?}
+Reply in: ${langNames[lang] || 'English'}
+Tone: ${toneNames[tone] || 'professional'}
+Platform: ${platformNames[platform] || 'Alibaba.com'}
 
-## 瑙勫垯
-1. 鍙熀浜庡綋鍓嶈鐩樺拰鐭ヨ瘑搴撳洖澶?2. 涓嶇紪閫犱笉瀛樺湪鐨勪骇鍝佷俊鎭?3. 涔板鍐呭涓嶆硠闇瞏;
+Rules:
+- 300-500 words, professional and warm
+- Use bullet points for clarity
+- End with [Your Name] [Company Name]
+${priceRange ? `- Mention reference price range ${priceRange}, confirm final price based on specs` : ''}
 
-        const response = await fetch('https://api.deepseek.com/chat/completions', {
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/json',
-                'Authorization': `Bearer ${API_KEY}`
-            },
-            body: JSON.stringify({
+Industry: Ceramic tiles, aluminum windows/doors, LED lighting, sanitary ware
+Trade terms: FOB/CIF/DDP
+Certifications: CE/ISO/SGS
+
+Knowledge base:
+${knowledgeBase || '(No specific product info, use general professional reply)'}
+
+Rules:
+1. Only reply based on current inquiry and knowledge base
+2. Do not fabricate product info
+3. Do not leak buyer content`;
+
+        return new Promise((resolve, reject) => {
+            const postData = JSON.stringify({
                 model: MODEL,
                 messages: [
                     { role: 'system', content: systemPrompt },
@@ -60,25 +66,64 @@ exports.handler = async (event) => {
                 ],
                 temperature: 0.7,
                 max_tokens: 4096
-            })
+            });
+
+            const options = {
+                hostname: 'api.deepseek.com',
+                port: 443,
+                path: '/chat/completions',
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Authorization': `Bearer ${API_KEY}`,
+                    'Content-Length': Buffer.byteLength(postData)
+                }
+            };
+
+            const req = https.request(options, (res) => {
+                let data = '';
+                res.on('data', (chunk) => { data += chunk; });
+                res.on('end', () => {
+                    try {
+                        const result = JSON.parse(data);
+                        if (result.choices && result.choices[0]) {
+                            resolve({
+                                statusCode: 200,
+                                headers,
+                                body: JSON.stringify({
+                                    reply: result.choices[0].message.content,
+                                    model: MODEL,
+                                    customerId
+                                })
+                            });
+                        } else {
+                            resolve({
+                                statusCode: 500,
+                                headers,
+                                body: JSON.stringify({ error: 'Invalid response from DeepSeek', detail: data.substring(0, 200) })
+                            });
+                        }
+                    } catch (e) {
+                        resolve({
+                            statusCode: 500,
+                            headers,
+                            body: JSON.stringify({ error: 'Parse error', detail: data.substring(0, 200) })
+                        });
+                    }
+                });
+            });
+
+            req.on('error', (e) => {
+                resolve({
+                    statusCode: 500,
+                    headers,
+                    body: JSON.stringify({ error: e.message })
+                });
+            });
+
+            req.write(postData);
+            req.end();
         });
-
-        if (!response.ok) {
-            const err = await response.text();
-            return { statusCode: 500, headers, body: JSON.stringify({ error: `DeepSeek API error: ${response.status}` }) };
-        }
-
-        const data = await response.json();
-
-        return {
-            statusCode: 200,
-            headers,
-            body: JSON.stringify({
-                reply: data.choices[0].message.content,
-                model: MODEL,
-                customerId
-            })
-        };
     } catch (err) {
         return { statusCode: 500, headers, body: JSON.stringify({ error: err.message }) };
     }
