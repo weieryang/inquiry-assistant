@@ -3,3 +3,5 @@ node_modules/
 sessions/
 knowledge/knowledge-data.json
 knowledge/cloud-knowledge.json
+~$*.xlsx
+templates/~$*.xlsx

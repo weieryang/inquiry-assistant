@@ -4,6 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>询盘回复助手 - 云端知识库</title>
+    <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js" defer></script>
     <style>
         :root {
             --bg: #f4f8fb;
@@ -180,6 +181,46 @@
         .btn.ghost {
             background: transparent;
             color: var(--muted);
+        }
+
+        .auto-panel {
+            display: grid;
+            gap: 8px;
+            padding: 12px;
+            border: 1px solid var(--line);
+            border-radius: var(--radius);
+            background: #f7fbfd;
+        }
+
+        .auto-title {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            gap: 8px;
+            font-size: 13px;
+            font-weight: 800;
+            color: #263449;
+        }
+
+        .auto-desc {
+            margin: 0;
+            color: var(--muted);
+            font-size: 12px;
+            line-height: 1.55;
+        }
+
+        .intent-pill {
+            display: inline-flex;
+            align-items: center;
+            min-height: 24px;
+            padding: 3px 8px;
+            border-radius: 999px;
+            border: 1px solid #cce6dd;
+            color: #0f684f;
+            background: #edf9f4;
+            font-size: 11px;
+            font-weight: 800;
+            white-space: nowrap;
         }
 
         .product-switch, .skill-switch {
@@ -360,12 +401,17 @@
         }
 
         .message {
-            max-width: 78%;
+            width: fit-content;
+            max-width: min(760px, 78%);
             margin-bottom: 14px;
         }
 
         .message.user { margin-left: auto; }
-        .message.assistant { margin-right: auto; }
+        .message.assistant {
+            width: min(960px, 86%);
+            max-width: 86%;
+            margin-right: auto;
+        }
 
         .message-label {
             margin-bottom: 5px;
@@ -377,6 +423,7 @@
         .message.user .message-label { text-align: right; }
 
         .bubble {
+            display: inline-block;
             padding: 13px 15px;
             border-radius: var(--radius);
             white-space: pre-wrap;
@@ -397,21 +444,34 @@
             color: var(--ink);
         }
 
+        .message.analysis {
+            width: min(900px, 84%);
+            max-width: 84%;
+            margin-right: auto;
+        }
+
+        .message.analysis .bubble {
+            border: 1px solid #cce6dd;
+            background: #f3fbf7;
+            color: #18382f;
+        }
+
         .composer {
             padding: 14px 20px 18px;
             border-top: 1px solid var(--line);
             background: rgba(255, 255, 255, 0.92);
         }
 
-        .quick-actions {
+        .composer-tools {
             display: flex;
+            justify-content: space-between;
+            align-items: center;
             gap: 8px;
             margin-bottom: 10px;
-            overflow-x: auto;
-            padding-bottom: 2px;
+            flex-wrap: wrap;
         }
 
-        .chip {
+        .file-btn, .chip {
             height: 30px;
             padding: 0 10px;
             border: 1px solid var(--line-strong);
@@ -429,9 +489,13 @@
             color: var(--brand-strong);
         }
 
+        .hidden-file { display: none; }
+
         .composer textarea {
-            height: 96px;
+            min-height: 58px;
+            max-height: 220px;
             margin-bottom: 10px;
+            overflow-y: auto;
         }
 
         .composer-footer {
@@ -580,8 +644,14 @@
             </div>
 
             <div class="section">
-                <p class="section-title">回复技能</p>
-                <div class="skill-switch" id="skillSwitch"></div>
+                <p class="section-title">自动识别</p>
+                <div class="auto-panel">
+                    <div class="auto-title">
+                        <span>回复策略</span>
+                        <span class="intent-pill" id="autoIntentPill">自动判断</span>
+                    </div>
+                    <p class="auto-desc">系统会根据询盘、对话文件和知识库自动判断报价、样品、物流、定制、跟进或异议处理。</p>
+                </div>
             </div>
 
             <div class="section">
@@ -640,7 +710,7 @@
                 </div>
                 <div class="toolbar-row">
                     <span class="badge" id="activeProductBadge">雕塑产品</span>
-                    <span class="badge skill" id="activeSkillBadge">报价确认</span>
+                    <span class="badge skill" id="activeSkillBadge">自动识别</span>
                     <button class="btn" onclick="copyLastReply()">复制回复</button>
                     <button class="btn" onclick="clearCurrentSession()">清除会话</button>
                     <button class="btn" onclick="toggleKnowledgePanel()">知识库</button>
@@ -650,10 +720,14 @@
             <section class="messages" id="messagesArea"></section>
 
             <footer class="composer">
-                <div class="quick-actions" id="quickActions"></div>
-                <textarea id="inputArea" placeholder="粘贴买家询盘内容，Ctrl+Enter 生成回复" onkeydown="handleKeydown(event)"></textarea>
+                <div class="composer-tools">
+                    <label class="file-btn" for="conversationFile">上传对话文档</label>
+                    <input class="hidden-file" id="conversationFile" type="file" accept=".txt,.csv,.xlsx,.xls" onchange="handleConversationFile(event)">
+                    <span class="hint" id="fileHint">支持 TXT、CSV、Excel；文件只绑定当前客户ID</span>
+                </div>
+                <textarea id="inputArea" placeholder="粘贴买家最新问题，或先上传对话文档后直接生成回复" oninput="handleInputChange()" onkeydown="handleKeydown(event)"></textarea>
                 <div class="composer-footer">
-                    <span class="hint" id="composerHint">当前使用：雕塑产品知识库 · 报价确认技能</span>
+                    <span class="hint" id="composerHint">当前使用：雕塑产品知识库 · 自动识别回复策略</span>
                     <button class="btn primary" id="sendBtn" onclick="sendMessage()">生成回复</button>
                 </div>
             </footer>
@@ -745,13 +819,12 @@
 
         const ACCESS_TOKEN_KEY = 'inquiry_access_token';
         const ACTIVE_CATEGORY_KEY = 'inquiry_active_category';
-        const ACTIVE_SKILL_KEY = 'inquiry_active_skill';
         const SESSION_KEY = 'inquiry_sessions_v3';
 
         let activeCategory = localStorage.getItem(ACTIVE_CATEGORY_KEY) || 'sculpture';
-        let activeSkill = localStorage.getItem(ACTIVE_SKILL_KEY) || 'quote';
+        let activeSkill = 'auto';
         let currentCustomerId = '';
-        let currentSession = { messages: [] };
+        let currentSession = { messages: [], documentContext: '' };
         let knowledgeProfiles = {};
         let storageMode = 'loading';
         let knowledgeDirty = false;
@@ -761,10 +834,9 @@
         function init() {
             document.getElementById('accessToken').value = localStorage.getItem(ACCESS_TOKEN_KEY) || '';
             renderProductSwitch();
-            renderSkillSwitch();
-            renderQuickActions();
             renderSessionList();
             renderMessages();
+            autoResizeInput();
             loadKnowledge();
         }
 
@@ -810,33 +882,14 @@
             syncHeader();
         }
 
-        function renderSkillSwitch() {
-            const wrap = document.getElementById('skillSwitch');
-            wrap.innerHTML = Object.values(REPLY_SKILLS).map(item => `
-                <button class="skill-option ${item.id === activeSkill ? 'active' : ''}" onclick="selectSkill('${item.id}', false)">
-                    <span>
-                        <span class="skill-name">${esc(item.name)}</span><br>
-                        <span class="skill-meta">${esc(item.meta)}</span>
-                    </span>
-                    <span class="skill-tag">${item.id === activeSkill ? '已选' : ''}</span>
-                </button>
-            `).join('');
-            syncHeader();
-        }
-
-        function renderQuickActions() {
-            const wrap = document.getElementById('quickActions');
-            wrap.innerHTML = Object.values(REPLY_SKILLS).map(item => `
-                <button class="chip ${item.id === activeSkill ? 'active' : ''}" onclick="selectSkill('${item.id}', true)">${esc(item.shortName)}</button>
-            `).join('');
-        }
-
         function syncHeader() {
             const activeProduct = product();
-            const activeSkillItem = skill();
+            const detectedSkill = detectReplySkill(document.getElementById('inputArea')?.value || '');
+            const activeSkillItem = skill(detectedSkill);
             document.getElementById('activeProductBadge').textContent = activeProduct.name;
-            document.getElementById('activeSkillBadge').textContent = activeSkillItem.name;
-            document.getElementById('composerHint').textContent = `当前使用：${activeProduct.name}知识库 · ${activeSkillItem.name}技能`;
+            document.getElementById('activeSkillBadge').textContent = '自动识别：' + activeSkillItem.name;
+            document.getElementById('autoIntentPill').textContent = activeSkillItem.name;
+            document.getElementById('composerHint').textContent = `当前使用：${activeProduct.name}知识库 · 自动识别为 ${activeSkillItem.name}`;
             document.getElementById('knowledgeTitle').textContent = activeProduct.name + '知识库';
             document.getElementById('knowledgeDesc').textContent = activeProduct.description;
             updateStatusLine();
@@ -852,17 +905,14 @@
             renderKnowledgeEditor();
         }
 
-        function selectSkill(id, fillTemplate) {
-            if (!REPLY_SKILLS[id]) return;
-            activeSkill = id;
-            localStorage.setItem(ACTIVE_SKILL_KEY, id);
-            renderSkillSwitch();
-            renderQuickActions();
-            if (fillTemplate) {
-                const input = document.getElementById('inputArea');
-                input.value = skill(id).template;
-                input.focus();
-            }
+        function detectReplySkill(text = '') {
+            const source = `${text}\n${currentSession.documentContext || ''}`.toLowerCase();
+            if (/sample|样品|sample fee|courier|寄样|样板/.test(source)) return 'sample';
+            if (/ship|shipping|freight|forwarder|delivery|lead time|package|packing|carton|物流|运费|交期|包装|装柜/.test(source)) return 'logistics';
+            if (/custom|oem|odm|logo|color|size|drawing|design|定制|尺寸|颜色|图纸|方案/.test(source)) return 'custom';
+            if (/too expensive|expensive|cheaper|discount|target price|贵|便宜|折扣|太高/.test(source)) return 'objection';
+            if (/follow up|decision|update|waiting|remind|回复了吗|跟进|决定/.test(source)) return 'followup';
+            return 'quote';
         }
 
         async function loadKnowledge() {
@@ -944,10 +994,10 @@
         }
 
         function createNewSession() {
-            let id = document.getElementById('customerIdInput').value.trim();
+            const id = document.getElementById('customerIdInput').value.trim();
             if (!id) {
-                id = 'customer-' + Date.now().toString(36);
-                document.getElementById('customerIdInput').value = id;
+                toast('请先输入明确的客户ID，系统只会保存这个ID的数据');
+                return;
             }
             switchToSession(id);
         }
@@ -958,11 +1008,10 @@
             switchToSession(id);
         }
 
-        function ensureSession() {
+        function requireActiveCustomer() {
             if (currentCustomerId) return true;
-            const id = document.getElementById('customerIdInput').value.trim() || 'customer-' + Date.now().toString(36);
-            switchToSession(id);
-            return Boolean(currentCustomerId);
+            toast('请先输入客户ID并点击进入，避免会话串到别的客户');
+            return false;
         }
 
         function switchToSession(id) {
@@ -974,7 +1023,12 @@
             document.getElementById('customerIdInput').value = id;
             document.getElementById('currentCustomerLabel').textContent = id;
             const sessions = getSessions();
-            currentSession = sessions[id] || { messages: [] };
+            currentSession = sessions[id] || { messages: [], documentContext: '' };
+            currentSession.messages = currentSession.messages || [];
+            currentSession.documentContext = currentSession.documentContext || '';
+            document.getElementById('fileHint').textContent = currentSession.documentContext
+                ? '当前客户已绑定对话文档'
+                : '支持 TXT、CSV、Excel；文件只绑定当前客户ID';
             renderSessionList();
             renderMessages();
             updateStatusLine();
@@ -992,7 +1046,7 @@
                 <button class="session-item ${id === currentCustomerId ? 'active' : ''}" onclick="switchToSession('${id}')">
                     <span>
                         <span class="session-id">${esc(id)}</span><br>
-                        <span class="session-count">${sessions[id].messages.length} 条消息</span>
+                        <span class="session-count">${(sessions[id].messages || []).length} 条消息</span>
                     </span>
                     <span class="delete-btn" onclick="event.stopPropagation(); deleteSession('${id}')">删除</span>
                 </button>
@@ -1006,8 +1060,9 @@
             saveSessions(sessions);
             if (id === currentCustomerId) {
                 currentCustomerId = '';
-                currentSession = { messages: [] };
+                currentSession = { messages: [], documentContext: '' };
                 document.getElementById('currentCustomerLabel').textContent = '未选择客户';
+                document.getElementById('fileHint').textContent = '支持 TXT、CSV、Excel；文件只绑定当前客户ID';
             }
             renderSessionList();
             renderMessages();
@@ -1026,7 +1081,7 @@
                     <div class="empty-state">
                         <div class="empty-card">
                             <strong>粘贴买家询盘即可生成回复</strong>
-                            <span>左侧选择产品知识分类和回复技能，右侧维护团队共用的云端知识库。</span>
+                            <span>先进入客户ID，系统会按当前客户ID保存对话和上传文档；回复策略会自动识别。</span>
                         </div>
                     </div>
                 `;
@@ -1034,22 +1089,36 @@
             }
             area.innerHTML = currentSession.messages.map(message => `
                 <div class="message ${message.role}">
-                    <div class="message-label">${message.role === 'user' ? '买家询盘' : 'AI回复'}${message.skill ? ' · ' + esc(skill(message.skill).name) : ''}</div>
+                    <div class="message-label">${messageLabel(message)}</div>
                     <div class="bubble">${esc(message.content)}</div>
                 </div>
             `).join('');
             area.scrollTop = area.scrollHeight;
         }
 
+        function messageLabel(message) {
+            if (message.role === 'user') return '买家询盘';
+            if (message.role === 'analysis') return '对话分析';
+            return `AI回复${message.skill ? ' · ' + esc(skill(message.skill).name) : ''}`;
+        }
+
         async function sendMessage() {
             const input = document.getElementById('inputArea');
             const text = input.value.trim();
-            if (!text) return;
-            if (!ensureSession()) return;
+            if (!requireActiveCustomer()) return;
+            if (!text && !currentSession.documentContext) {
+                toast('请输入买家问题，或先上传对话文档');
+                return;
+            }
 
-            currentSession.messages.push({ role: 'user', content: text, skill: activeSkill });
+            const detectedSkill = detectReplySkill(text);
+            const inquiryText = text || 'Please analyze the uploaded conversation and write the best next reply to the latest buyer message.';
+            if (text) {
+                currentSession.messages.push({ role: 'user', content: text, skill: detectedSkill });
+            }
             renderMessages();
             input.value = '';
+            autoResizeInput();
             setSending(true);
 
             try {
@@ -1059,22 +1128,23 @@
                     headers: apiHeaders(),
                     body: JSON.stringify({
                         customerId: currentCustomerId,
-                        inquiry: text,
+                        inquiry: inquiryText,
                         platform: document.getElementById('platform').value,
                         lang: document.getElementById('replyLang').value,
                         tone: document.getElementById('tone').value,
                         priceRange: document.getElementById('priceRange').value,
                         model: document.getElementById('modelSelect').value,
                         knowledgeCategory: activeCategory,
-                        replySkill: activeSkill,
-                        knowledgeBase: unsavedKnowledge
+                        replySkill: 'auto',
+                        knowledgeBase: unsavedKnowledge,
+                        conversationContext: currentSession.documentContext || ''
                     })
                 });
                 const data = await res.json().catch(() => ({ error: '服务返回异常' }));
                 if (res.status === 401) throw new Error('口令错误或未填写');
                 if (!res.ok) throw new Error(data.error || '生成失败');
 
-                currentSession.messages.push({ role: 'assistant', content: data.reply, skill: data.replySkill || activeSkill });
+                currentSession.messages.push({ role: 'assistant', content: data.reply, skill: data.replySkill || detectedSkill });
                 const sessions = getSessions();
                 sessions[currentCustomerId] = currentSession;
                 saveSessions(sessions);
@@ -1082,12 +1152,159 @@
                 renderSessionList();
                 updateStatusLine();
             } catch (error) {
-                currentSession.messages.pop();
+                if (text) currentSession.messages.pop();
                 renderMessages();
                 toast('生成失败：' + error.message);
             } finally {
                 setSending(false);
             }
+        }
+
+        function handleInputChange() {
+            activeSkill = detectReplySkill(document.getElementById('inputArea').value);
+            syncHeader();
+            autoResizeInput();
+        }
+
+        function autoResizeInput() {
+            const input = document.getElementById('inputArea');
+            if (!input) return;
+            input.style.height = 'auto';
+            input.style.height = Math.min(220, Math.max(58, input.scrollHeight)) + 'px';
+        }
+
+        async function handleConversationFile(event) {
+            const file = event.target.files && event.target.files[0];
+            if (!file) return;
+            if (!requireActiveCustomer()) {
+                event.target.value = '';
+                return;
+            }
+            if (file.size > 2 * 1024 * 1024) {
+                toast('对话文档请控制在 2MB 内，避免浏览器存储过大');
+                event.target.value = '';
+                return;
+            }
+
+            try {
+                document.getElementById('fileHint').textContent = '正在分析对话文档...';
+                const rawText = await readConversationFile(file);
+                const analysis = analyzeConversationText(rawText, file.name);
+                currentSession.documentContext = analysis.context;
+                currentSession.documentName = file.name;
+                currentSession.messages.push({ role: 'analysis', content: analysis.summary });
+
+                const sessions = getSessions();
+                sessions[currentCustomerId] = currentSession;
+                saveSessions(sessions);
+                document.getElementById('fileHint').textContent = `已绑定：${file.name}`;
+                activeSkill = analysis.skill;
+                if (analysis.category && analysis.category !== activeCategory) {
+                    activeCategory = analysis.category;
+                    localStorage.setItem(ACTIVE_CATEGORY_KEY, activeCategory);
+                    renderProductSwitch();
+                    renderKnowledgeEditor();
+                }
+                renderMessages();
+                renderSessionList();
+                syncHeader();
+                toast('对话文档已分析并绑定到当前客户ID');
+            } catch (error) {
+                document.getElementById('fileHint').textContent = '文件分析失败';
+                toast('文件分析失败：' + error.message);
+            } finally {
+                event.target.value = '';
+            }
+        }
+
+        function readConversationFile(file) {
+            const lowerName = file.name.toLowerCase();
+            if (lowerName.endsWith('.xlsx') || lowerName.endsWith('.xls')) {
+                return readExcelConversation(file);
+            }
+            return file.text();
+        }
+
+        function readExcelConversation(file) {
+            return new Promise((resolve, reject) => {
+                if (!window.XLSX) {
+                    reject(new Error('Excel 解析库还没有加载完成，请几秒后重试'));
+                    return;
+                }
+                const reader = new FileReader();
+                reader.onload = () => {
+                    try {
+                        const workbook = window.XLSX.read(reader.result, { type: 'array' });
+                        const sheet = workbook.Sheets[workbook.SheetNames[0]];
+                        const rows = window.XLSX.utils.sheet_to_json(sheet, { header: 1, defval: '' });
+                        resolve(rowsToConversationText(rows));
+                    } catch (error) {
+                        reject(error);
+                    }
+                };
+                reader.onerror = () => reject(new Error('无法读取文件'));
+                reader.readAsArrayBuffer(file);
+            });
+        }
+
+        function rowsToConversationText(rows) {
+            if (!rows.length) return '';
+            const headers = rows[0].map(item => String(item || '').trim());
+            const lines = [];
+            rows.slice(1).forEach((row, index) => {
+                const values = row.map(item => String(item || '').trim());
+                if (!values.some(Boolean)) return;
+                const record = {};
+                headers.forEach((header, colIndex) => {
+                    if (header) record[header] = values[colIndex] || '';
+                });
+                const time = record['发送时间'] || record['时间'] || record['Time'] || values[0] || '';
+                const sender = record['发送者'] || record['Sender'] || values[1] || '';
+                const role = record['角色'] || record['Role'] || values[2] || '';
+                const type = record['消息类型'] || record['Type'] || values[3] || '';
+                const content = record['内容/链接'] || record['内容'] || record['Message'] || values[4] || values.filter(Boolean).join(' ');
+                lines.push(`[${index + 1}] 时间:${time} 发送者:${sender} 角色:${role} 类型:${type} 内容:${content}`);
+            });
+            return lines.join('\n');
+        }
+
+        function analyzeConversationText(rawText, fileName) {
+            const cleanText = String(rawText || '').replace(/\r/g, '').trim();
+            if (!cleanText) throw new Error('文件里没有可分析的文本内容');
+            const lines = cleanText.split('\n').map(line => line.trim()).filter(Boolean);
+            const buyerLines = lines.filter(line => /角色[:：]?\s*买家|buyer|客户/i.test(line));
+            const sellerLines = lines.filter(line => /角色[:：]?\s*卖家|seller|系统自动接待|自动回复/i.test(line));
+            const latestBuyerLine = [...buyerLines].reverse()[0] || [...lines].reverse().find(line => !/系统自动接待|seller|卖家/i.test(line)) || lines[lines.length - 1];
+            const unreadCount = lines.filter(line => /未读/.test(line)).length;
+            const autoReplyCount = lines.filter(line => /系统自动接待|自动回复/.test(line)).length;
+            const skillId = detectReplySkill(`${latestBuyerLine}\n${cleanText}`);
+            const category = /sofa|mattress|compressed|vacuum|沙发|床垫|压缩/i.test(cleanText)
+                ? 'compressed-sofa'
+                : /sculpture|statue|stainless|fiberglass|bronze|雕塑|景观/i.test(cleanText)
+                    ? 'sculpture'
+                    : '';
+            const summary = [
+                `已分析文件：${fileName}`,
+                `客户ID：${currentCustomerId}`,
+                `消息行数：${lines.length}；买家消息：${buyerLines.length || '未识别'}；卖家/自动回复：${sellerLines.length || '未识别'}；未读标记：${unreadCount}。`,
+                `最新买家问题：${compactLine(latestBuyerLine, 360)}`,
+                `系统判断回复策略：${skill(skillId).name}${category ? `；产品分类：${product(category).name}` : ''}`,
+                '下一步：可以直接点“生成回复”，也可以在输入框补充你的要求后再生成。'
+            ].join('\n');
+            const context = [
+                `Uploaded conversation file: ${fileName}`,
+                `Customer ID: ${currentCustomerId}`,
+                `Detected latest buyer message: ${latestBuyerLine}`,
+                `Detected reply skill: ${skill(skillId).name}`,
+                `Conversation transcript:`,
+                cleanText
+            ].join('\n').slice(-16000);
+            return { summary, context, skill: skillId, category };
+        }
+
+        function compactLine(value, limit) {
+            const text = String(value || '').replace(/\s+/g, ' ').trim();
+            return text.length > limit ? text.slice(0, limit - 1) + '...' : text;
         }
 
         function setSending(isSending) {
@@ -1112,7 +1329,8 @@
         function updateStatusLine() {
             const count = currentSession.messages.length;
             const storageText = storageMode === 'netlify-blobs' ? '云端知识库' : storageMode === 'loading' ? '读取中' : '本地调试';
-            document.getElementById('statusLine').textContent = `${product().name} · ${skill().name} · ${count} 条消息 · ${storageText}`;
+            const docText = currentSession.documentContext ? '已绑定对话文档' : '未上传对话文档';
+            document.getElementById('statusLine').textContent = `${product().name} · 自动识别 · ${count} 条消息 · ${docText} · ${storageText}`;
         }
 
         function toggleKnowledgePanel() {
