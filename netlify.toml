@@ -2,6 +2,10 @@
   publish = "public"
   functions = "netlify/functions"
 
+[functions]
+  node_bundler = "esbuild"
+  external_node_modules = ["@netlify/blobs"]
+
 [[redirects]]
   from = "/api/*"
   to = "/.netlify/functions/:splat"
