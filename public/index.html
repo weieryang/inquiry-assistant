@@ -214,7 +214,7 @@
             currentSession.messages.push({role:'user',content:text});renderMessages();input.value='';
             document.getElementById('typingIndicator').classList.add('show');document.getElementById('sendBtn').disabled=true;
             try{
-                const res=await fetch('/api/generate',{method:'POST',headers:{'Content-Type':'application/json'},
+                const res=await fetch('/.netlify/functions/generate',{method:'POST',headers:{'Content-Type':'application/json'},
                     body:JSON.stringify({customerId:currentCustomerId,inquiry:text,platform:document.getElementById('platform').value,lang:document.getElementById('replyLang').value,tone:document.getElementById('tone').value,priceRange:document.getElementById('priceRange').value,model:document.getElementById('modelSelect').value,knowledgeBase:getKBContent()})});
                 const data=await res.json();
                 if(res.ok){currentSession.messages.push({role:'assistant',content:data.reply});const s=getSessions();s[currentCustomerId]=currentSession;saveSessions(s);renderMessages();renderSessionList();}
