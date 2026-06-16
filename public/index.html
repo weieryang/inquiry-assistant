@@ -3,275 +3,976 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>询盘回复助手 - DeepSeek V4</title>
+    <title>询盘回复助手 - 云端知识库</title>
     <style>
-        * { margin: 0; padding: 0; box-sizing: border-box; }
-        body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; background: #f0f2f5; color: #333; height: 100vh; display: flex; flex-direction: column; }
-        .header { background: linear-gradient(135deg, #1a1a2e, #16213e); color: white; padding: 14px 24px; display: flex; align-items: center; justify-content: space-between; flex-shrink: 0; }
-        .header h1 { font-size: 18px; }
-        .header .ver { font-size: 11px; background: rgba(255,255,255,0.15); padding: 3px 8px; border-radius: 10px; }
-        .app { display: flex; flex: 1; overflow: hidden; }
-        .sidebar { width: 280px; background: #1a1a2e; color: #ccc; display: flex; flex-direction: column; flex-shrink: 0; }
-        .sb-section { padding: 14px; border-bottom: 1px solid rgba(255,255,255,0.08); }
-        .sb-section h3 { font-size: 11px; text-transform: uppercase; letter-spacing: 1px; color: #888; margin-bottom: 10px; }
-        .sb-row { display: flex; gap: 6px; margin-bottom: 8px; }
-        .sb-row label { font-size: 12px; color: #888; width: 55px; flex-shrink: 0; line-height: 28px; }
-        .sb-row select, .sb-row input { flex: 1; padding: 6px 8px; border: 1px solid rgba(255,255,255,0.15); border-radius: 6px; background: rgba(255,255,255,0.08); color: white; font-size: 12px; }
-        .sb-row select option { background: #1a1a2e; }
-        .session-input { display: flex; gap: 6px; }
-        .session-input input { flex: 1; padding: 8px 10px; border: 1px solid rgba(255,255,255,0.15); border-radius: 6px; background: rgba(255,255,255,0.08); color: white; font-size: 13px; }
-        .session-input input::placeholder { color: #666; }
-        .session-input button { padding: 8px 12px; border: none; border-radius: 6px; background: #1a73e8; color: white; font-size: 12px; cursor: pointer; }
-        .new-session-btn { width: 100%; padding: 8px; margin-top: 8px; border: 1px dashed rgba(255,255,255,0.2); border-radius: 6px; background: transparent; color: #aaa; font-size: 12px; cursor: pointer; }
-        .new-session-btn:hover { border-color: #1a73e8; color: #1a73e8; }
-        .session-list { flex: 1; overflow-y: auto; padding: 8px; }
-        .session-item { padding: 10px 12px; border-radius: 8px; cursor: pointer; margin-bottom: 4px; position: relative; }
-        .session-item:hover { background: rgba(255,255,255,0.08); }
-        .session-item.active { background: #1a73e8; color: white; }
-        .session-item .sid { font-size: 13px; font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-        .session-item .smeta { font-size: 11px; opacity: 0.6; margin-top: 3px; }
-        .session-item .sdel { position: absolute; right: 8px; top: 50%; transform: translateY(-50%); background: rgba(255,0,0,0.6); color: white; border: none; width: 20px; height: 20px; border-radius: 4px; font-size: 11px; cursor: pointer; display: none; }
-        .session-item:hover .sdel { display: block; }
-        .kb-actions { display: flex; gap: 6px; margin-bottom: 8px; }
-        .kb-btn { flex: 1; padding: 6px; border: 1px solid rgba(255,255,255,0.15); border-radius: 6px; background: transparent; color: #aaa; font-size: 11px; cursor: pointer; }
-        .kb-btn:hover { border-color: #1a73e8; color: #1a73e8; }
-        .kb-list { max-height: 120px; overflow-y: auto; }
-        .kb-item { display: flex; justify-content: space-between; align-items: center; padding: 5px 8px; font-size: 12px; border-radius: 4px; margin-bottom: 2px; }
-        .kb-item:hover { background: rgba(255,255,255,0.05); }
-        .kb-item .kname { flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-        .kb-item .ksize { color: #666; font-size: 11px; margin: 0 8px; }
-        .kb-item .kdel { background: none; border: none; color: #ff6666; cursor: pointer; font-size: 14px; }
-        .main { flex: 1; display: flex; flex-direction: column; background: white; }
-        .chat-header { padding: 12px 20px; border-bottom: 1px solid #e8e8e8; display: flex; align-items: center; justify-content: space-between; background: #fafafa; }
-        .chat-header .cc { font-size: 15px; font-weight: 600; }
-        .badge { padding: 3px 10px; border-radius: 12px; font-size: 11px; font-weight: 600; }
-        .badge-alibaba { background: #fff3e0; color: #e65100; }
-        .badge-mic { background: #e8f5e9; color: #2e7d32; }
-        .badge-1688 { background: #fce4ec; color: #c62828; }
-        .chat-hdr-btns { display: flex; gap: 8px; }
-        .hdr-btn { padding: 6px 14px; border: 1px solid #ddd; border-radius: 6px; background: white; font-size: 12px; cursor: pointer; }
-        .hdr-btn:hover { background: #f5f5f5; }
-        .messages { flex: 1; overflow-y: auto; padding: 20px; }
-        .msg { max-width: 80%; margin-bottom: 16px; animation: msgIn 0.25s ease; }
-        @keyframes msgIn { from { opacity: 0; transform: translateY(8px); } }
-        .msg.user { margin-left: auto; }
-        .msg.assistant { margin-right: auto; }
-        .msg.system { max-width: 100%; text-align: center; margin: 10px auto; }
-        .msg-label { font-size: 11px; color: #999; margin-bottom: 4px; }
-        .msg.user .msg-label { text-align: right; }
-        .msg-bubble { padding: 12px 16px; border-radius: 12px; font-size: 14px; line-height: 1.6; white-space: pre-wrap; word-break: break-word; }
-        .msg.user .msg-bubble { background: #1a73e8; color: white; border-bottom-right-radius: 4px; }
-        .msg.assistant .msg-bubble { background: #f1f3f4; color: #333; border-bottom-left-radius: 4px; }
-        .msg.system .msg-bubble { background: #fff8e1; color: #f57f17; font-size: 12px; display: inline-block; padding: 6px 14px; border-radius: 20px; }
-        .typing { display: none; padding: 12px 16px; background: #f1f3f4; border-radius: 12px; border-bottom-left-radius: 4px; max-width: 60px; margin-bottom: 16px; }
-        .typing.show { display: block; }
-        .dots span { display: inline-block; width: 6px; height: 6px; background: #999; border-radius: 50%; margin: 0 2px; animation: bounce 1.4s infinite; }
-        .dots span:nth-child(2) { animation-delay: 0.2s; }
-        .dots span:nth-child(3) { animation-delay: 0.4s; }
-        @keyframes bounce { 0%,60%,100% { transform: translateY(0); } 30% { transform: translateY(-6px); } }
-        .input-area { padding: 16px 20px; border-top: 1px solid #e8e8e8; background: #fafafa; }
-        .input-tools { display: flex; gap: 6px; margin-bottom: 8px; flex-wrap: wrap; }
-        .tool-btn { padding: 4px 10px; border: 1px solid #ddd; border-radius: 16px; background: white; font-size: 11px; cursor: pointer; color: #555; }
-        .tool-btn:hover { border-color: #1a73e8; color: #1a73e8; }
-        .input-row { display: flex; gap: 10px; align-items: flex-end; }
-        .input-row textarea { flex: 1; padding: 12px 14px; border: 1px solid #ddd; border-radius: 10px; font-size: 14px; line-height: 1.5; resize: none; height: 60px; font-family: inherit; }
-        .input-row textarea:focus { outline: none; border-color: #1a73e8; box-shadow: 0 0 0 3px rgba(26,115,232,0.1); }
-        .send-btn { padding: 12px 24px; border: none; border-radius: 10px; background: #1a73e8; color: white; font-size: 14px; font-weight: 600; cursor: pointer; height: 60px; min-width: 80px; }
-        .send-btn:hover { background: #1557b0; }
-        .send-btn:disabled { background: #94baf7; cursor: not-allowed; }
-        .modal-overlay { display: none; position: fixed; top: 0; left: 0; right: 0; bottom: 0; background: rgba(0,0,0,0.5); z-index: 1000; align-items: center; justify-content: center; }
-        .modal-overlay.show { display: flex; }
-        .modal { background: white; border-radius: 12px; width: 500px; max-height: 80vh; overflow-y: auto; padding: 24px; }
-        .modal h3 { margin-bottom: 16px; font-size: 16px; }
-        .modal textarea { width: 100%; height: 300px; border: 1px solid #ddd; border-radius: 8px; padding: 12px; font-size: 13px; font-family: inherit; line-height: 1.6; resize: vertical; }
-        .modal-actions { display: flex; justify-content: flex-end; gap: 8px; margin-top: 16px; }
-        .modal-btn { padding: 8px 18px; border-radius: 6px; font-size: 13px; cursor: pointer; border: 1px solid #ddd; background: white; }
-        .modal-btn.primary { background: #1a73e8; color: white; border-color: #1a73e8; }
-        .toast { position: fixed; bottom: 20px; right: 20px; background: #333; color: white; padding: 10px 18px; border-radius: 8px; font-size: 13px; display: none; z-index: 2000; }
+        :root {
+            --bg: #0b1020;
+            --panel: #111827;
+            --panel-2: #151f32;
+            --line: rgba(148, 163, 184, 0.18);
+            --text: #e5e7eb;
+            --muted: #94a3b8;
+            --soft: #cbd5e1;
+            --accent: #38bdf8;
+            --accent-2: #2dd4bf;
+            --warn: #f59e0b;
+            --danger: #fb7185;
+            --white: #ffffff;
+            --radius: 8px;
+        }
+
+        * { box-sizing: border-box; }
+        body {
+            margin: 0;
+            height: 100vh;
+            overflow: hidden;
+            font-family: Inter, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+            background: var(--bg);
+            color: var(--text);
+        }
+
+        button, input, textarea, select { font: inherit; }
+        button { cursor: pointer; }
+
+        .app {
+            height: 100vh;
+            display: grid;
+            grid-template-columns: 300px minmax(0, 1fr) 380px;
+            background:
+                radial-gradient(circle at 20% 0%, rgba(56, 189, 248, 0.14), transparent 30%),
+                radial-gradient(circle at 90% 8%, rgba(45, 212, 191, 0.12), transparent 26%),
+                var(--bg);
+        }
+
+        .side, .knowledge {
+            min-height: 0;
+            background: rgba(17, 24, 39, 0.88);
+            border-right: 1px solid var(--line);
+            display: flex;
+            flex-direction: column;
+        }
+
+        .knowledge {
+            border-right: 0;
+            border-left: 1px solid var(--line);
+        }
+
+        .brand {
+            padding: 20px;
+            border-bottom: 1px solid var(--line);
+        }
+
+        .brand-title {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 12px;
+        }
+
+        .brand h1 {
+            margin: 0;
+            font-size: 18px;
+            letter-spacing: 0;
+        }
+
+        .version {
+            padding: 4px 8px;
+            border: 1px solid rgba(56, 189, 248, 0.32);
+            border-radius: 999px;
+            color: #bae6fd;
+            font-size: 11px;
+            background: rgba(14, 165, 233, 0.08);
+            white-space: nowrap;
+        }
+
+        .brand-sub {
+            margin: 10px 0 0;
+            color: var(--muted);
+            font-size: 12px;
+            line-height: 1.6;
+        }
+
+        .section {
+            padding: 16px 18px;
+            border-bottom: 1px solid var(--line);
+        }
+
+        .section-title {
+            margin: 0 0 10px;
+            color: var(--muted);
+            font-size: 11px;
+            font-weight: 700;
+            letter-spacing: 0.08em;
+            text-transform: uppercase;
+        }
+
+        .field {
+            display: grid;
+            gap: 6px;
+            margin-bottom: 10px;
+        }
+
+        .field label {
+            color: var(--soft);
+            font-size: 12px;
+        }
+
+        .control, select, textarea {
+            width: 100%;
+            border: 1px solid rgba(148, 163, 184, 0.22);
+            border-radius: var(--radius);
+            background: rgba(15, 23, 42, 0.82);
+            color: var(--text);
+            outline: none;
+        }
+
+        .control, select {
+            height: 36px;
+            padding: 0 10px;
+        }
+
+        textarea {
+            padding: 12px;
+            resize: none;
+            line-height: 1.55;
+        }
+
+        .control:focus, select:focus, textarea:focus {
+            border-color: rgba(56, 189, 248, 0.72);
+            box-shadow: 0 0 0 3px rgba(56, 189, 248, 0.12);
+        }
+
+        .row {
+            display: flex;
+            gap: 8px;
+            align-items: center;
+        }
+
+        .btn {
+            height: 36px;
+            border: 1px solid rgba(148, 163, 184, 0.24);
+            border-radius: var(--radius);
+            background: rgba(15, 23, 42, 0.88);
+            color: var(--text);
+            padding: 0 12px;
+            white-space: nowrap;
+        }
+
+        .btn:hover { border-color: rgba(56, 189, 248, 0.62); }
+        .btn.primary {
+            border-color: transparent;
+            background: linear-gradient(135deg, #0891b2, #0f766e);
+            color: var(--white);
+            font-weight: 700;
+        }
+
+        .btn.ghost {
+            background: transparent;
+            color: var(--muted);
+        }
+
+        .product-switch {
+            display: grid;
+            gap: 8px;
+        }
+
+        .product-option {
+            width: 100%;
+            display: grid;
+            grid-template-columns: 12px 1fr auto;
+            gap: 10px;
+            align-items: center;
+            padding: 11px 12px;
+            border: 1px solid rgba(148, 163, 184, 0.18);
+            border-radius: var(--radius);
+            color: var(--soft);
+            background: rgba(15, 23, 42, 0.58);
+            text-align: left;
+        }
+
+        .product-option.active {
+            border-color: rgba(45, 212, 191, 0.62);
+            background: rgba(13, 148, 136, 0.14);
+            color: var(--white);
+        }
+
+        .dot {
+            width: 10px;
+            height: 10px;
+            border-radius: 50%;
+            background: var(--accent);
+        }
+
+        .dot.sofa { background: var(--warn); }
+        .product-name { font-size: 13px; font-weight: 700; }
+        .product-meta { color: var(--muted); font-size: 11px; }
+
+        .session-list {
+            min-height: 0;
+            overflow: auto;
+            padding: 10px;
+            flex: 1;
+        }
+
+        .session-item {
+            width: 100%;
+            display: grid;
+            grid-template-columns: minmax(0, 1fr) auto;
+            gap: 8px;
+            align-items: center;
+            margin-bottom: 6px;
+            padding: 10px;
+            border: 1px solid transparent;
+            border-radius: var(--radius);
+            color: var(--soft);
+            background: transparent;
+            text-align: left;
+        }
+
+        .session-item:hover { background: rgba(148, 163, 184, 0.08); }
+        .session-item.active {
+            border-color: rgba(56, 189, 248, 0.46);
+            background: rgba(14, 165, 233, 0.12);
+            color: var(--white);
+        }
+
+        .session-id {
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap;
+            font-size: 13px;
+            font-weight: 700;
+        }
+
+        .session-count { color: var(--muted); font-size: 11px; }
+        .delete-btn {
+            border: 0;
+            color: var(--danger);
+            background: transparent;
+            font-weight: 700;
+        }
+
+        .main {
+            min-width: 0;
+            display: flex;
+            flex-direction: column;
+        }
+
+        .topbar {
+            height: 74px;
+            padding: 16px 22px;
+            border-bottom: 1px solid var(--line);
+            display: flex;
+            justify-content: space-between;
+            gap: 16px;
+            align-items: center;
+            background: rgba(11, 16, 32, 0.72);
+        }
+
+        .customer-title {
+            margin: 0;
+            font-size: 18px;
+        }
+
+        .status-line {
+            margin-top: 4px;
+            color: var(--muted);
+            font-size: 12px;
+        }
+
+        .badge {
+            padding: 5px 9px;
+            border: 1px solid rgba(45, 212, 191, 0.42);
+            border-radius: 999px;
+            color: #ccfbf1;
+            background: rgba(13, 148, 136, 0.12);
+            font-size: 12px;
+            white-space: nowrap;
+        }
+
+        .messages {
+            flex: 1;
+            min-height: 0;
+            overflow: auto;
+            padding: 22px;
+        }
+
+        .empty-state {
+            height: 100%;
+            display: grid;
+            place-items: center;
+            color: var(--muted);
+            text-align: center;
+            line-height: 1.7;
+        }
+
+        .message {
+            max-width: 78%;
+            margin-bottom: 14px;
+        }
+
+        .message.user { margin-left: auto; }
+        .message.assistant { margin-right: auto; }
+        .message-label {
+            margin-bottom: 5px;
+            color: var(--muted);
+            font-size: 11px;
+        }
+
+        .message.user .message-label { text-align: right; }
+        .bubble {
+            padding: 13px 15px;
+            border-radius: var(--radius);
+            white-space: pre-wrap;
+            word-break: break-word;
+            line-height: 1.62;
+            font-size: 14px;
+        }
+
+        .message.user .bubble {
+            background: linear-gradient(135deg, #0284c7, #0f766e);
+            color: var(--white);
+        }
+
+        .message.assistant .bubble {
+            border: 1px solid rgba(148, 163, 184, 0.18);
+            background: rgba(17, 24, 39, 0.78);
+            color: var(--text);
+        }
+
+        .composer {
+            padding: 16px 20px 20px;
+            border-top: 1px solid var(--line);
+            background: rgba(11, 16, 32, 0.78);
+        }
+
+        .quick-actions {
+            display: flex;
+            gap: 8px;
+            margin-bottom: 10px;
+            overflow-x: auto;
+        }
+
+        .chip {
+            height: 30px;
+            padding: 0 10px;
+            border: 1px solid rgba(148, 163, 184, 0.2);
+            border-radius: 999px;
+            background: rgba(15, 23, 42, 0.72);
+            color: var(--soft);
+            font-size: 12px;
+            white-space: nowrap;
+        }
+
+        .chip:hover { border-color: rgba(56, 189, 248, 0.52); }
+
+        .composer textarea {
+            height: 94px;
+            margin-bottom: 10px;
+        }
+
+        .composer-footer {
+            display: flex;
+            justify-content: space-between;
+            gap: 12px;
+            align-items: center;
+        }
+
+        .hint {
+            color: var(--muted);
+            font-size: 12px;
+        }
+
+        .knowledge-header {
+            padding: 18px;
+            border-bottom: 1px solid var(--line);
+        }
+
+        .knowledge-title {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 10px;
+        }
+
+        .knowledge-title h2 {
+            margin: 0;
+            font-size: 16px;
+        }
+
+        .storage-pill {
+            padding: 4px 8px;
+            border-radius: 999px;
+            background: rgba(56, 189, 248, 0.1);
+            color: #bae6fd;
+            font-size: 11px;
+        }
+
+        .knowledge-desc {
+            margin: 8px 0 0;
+            color: var(--muted);
+            font-size: 12px;
+            line-height: 1.6;
+        }
+
+        .knowledge-body {
+            min-height: 0;
+            display: flex;
+            flex-direction: column;
+            padding: 16px 18px;
+            gap: 12px;
+            flex: 1;
+        }
+
+        .knowledge-body textarea {
+            flex: 1;
+            min-height: 300px;
+        }
+
+        .knowledge-status {
+            min-height: 18px;
+            color: var(--muted);
+            font-size: 12px;
+        }
+
+        .toast {
+            position: fixed;
+            right: 18px;
+            bottom: 18px;
+            z-index: 30;
+            display: none;
+            max-width: 360px;
+            padding: 11px 13px;
+            border: 1px solid rgba(56, 189, 248, 0.28);
+            border-radius: var(--radius);
+            background: rgba(15, 23, 42, 0.96);
+            color: var(--text);
+            box-shadow: 0 18px 60px rgba(0, 0, 0, 0.3);
+            font-size: 13px;
+        }
+
         .toast.show { display: block; }
-        ::-webkit-scrollbar { width: 6px; }
-        ::-webkit-scrollbar-track { background: transparent; }
-        ::-webkit-scrollbar-thumb { background: #ccc; border-radius: 3px; }
-        @media (max-width: 900px) { .sidebar { display: none; } }
+
+        @media (max-width: 1180px) {
+            .app { grid-template-columns: 280px minmax(0, 1fr); }
+            .knowledge {
+                position: fixed;
+                right: 0;
+                top: 0;
+                bottom: 0;
+                width: min(390px, 92vw);
+                transform: translateX(100%);
+                transition: transform 0.2s ease;
+                z-index: 20;
+            }
+            .knowledge.open { transform: translateX(0); }
+        }
+
+        @media (max-width: 820px) {
+            body { overflow: auto; }
+            .app {
+                height: auto;
+                min-height: 100vh;
+                grid-template-columns: 1fr;
+            }
+            .side, .main { min-height: 0; }
+            .side { order: 1; }
+            .main { order: 2; min-height: 720px; }
+            .session-list { max-height: 180px; }
+            .topbar, .composer-footer { align-items: flex-start; flex-direction: column; }
+            .message { max-width: 96%; }
+        }
     </style>
 </head>
 <body>
-    <div class="header">
-        <div style="display:flex; align-items:center; gap:12px;">
-            <h1>询盘回复助手</h1>
-            <span class="ver">DeepSeek V4</span>
-        </div>
-        <div style="font-size:12px; opacity:0.7;">在线版</div>
-    </div>
     <div class="app">
-        <div class="sidebar">
-            <div class="sb-section">
-                <h3>客户会话</h3>
-                <div class="session-input">
-                    <input type="text" id="customerIdInput" placeholder="客户ID (如: dubai-hotel-001)">
-                    <button onclick="switchSession()">切换</button>
+        <aside class="side">
+            <div class="brand">
+                <div class="brand-title">
+                    <h1>询盘回复助手</h1>
+                    <span class="version">DeepSeek V4</span>
                 </div>
-                <button class="new-session-btn" onclick="createNewSession()">+ 新建会话</button>
+                <p class="brand-sub">云端产品知识库 + 多产品回复工作台</p>
             </div>
-            <div class="session-list" id="sessionList">
-                <div style="text-align:center; color:#555; font-size:12px; padding:20px;">暂无会话</div>
-            </div>
-            <div class="sb-section">
-                <h3>回复设置</h3>
-                <div class="sb-row"><label>平台</label><select id="platform"><option value="alibaba">国际站</option><option value="mic">中国制造网</option><option value="1688">1688</option></select></div>
-                <div class="sb-row"><label>语言</label><select id="replyLang"><option value="en">English</option><option value="es">Español</option><option value="ru">Русский</option><option value="ar">العربية</option><option value="pt">Português</option><option value="fr">Français</option><option value="de">Deutsch</option><option value="tr">Türkçe</option></select></div>
-                <div class="sb-row"><label>语气</label><select id="tone"><option value="professional">专业商务</option><option value="friendly">热情友好</option><option value="concise">简洁高效</option></select></div>
-                <div class="sb-row"><label>模型</label><select id="modelSelect"><option value="flash">V4-Flash (省钱)</option><option value="pro">V4-Pro (高质量)</option></select></div>
-                <div class="sb-row"><label>口令</label><input type="password" id="accessToken" placeholder="可选访问口令" onchange="saveAccessToken()"></div>
-                <div class="sb-row"><label>价格</label><input type="text" id="priceRange" placeholder="如: $5-15/件"></div>
-            </div>
-            <div class="sb-section">
-                <h3>知识库</h3>
-                <div class="kb-actions">
-                    <button class="kb-btn" onclick="showUploadKB()">上传文件</button>
-                    <button class="kb-btn" onclick="showCreateKB()">新建文档</button>
+
+            <div class="section">
+                <p class="section-title">访问</p>
+                <div class="field">
+                    <label for="accessToken">站点口令</label>
+                    <div class="row">
+                        <input class="control" type="password" id="accessToken" placeholder="输入团队口令">
+                        <button class="btn" onclick="saveAccessToken()">保存</button>
+                    </div>
                 </div>
-                <div class="kb-list" id="kbList"></div>
+                <button class="btn ghost" onclick="loadKnowledge()">刷新云端知识</button>
             </div>
-        </div>
-        <div class="main">
-            <div class="chat-header">
-                <div style="display:flex; align-items:center; gap:12px;">
-                    <span class="cc" id="currentCustomerLabel">未选择客户</span>
-                    <span class="badge badge-alibaba" id="platformBadge">国际站</span>
+
+            <div class="section">
+                <p class="section-title">产品知识分类</p>
+                <div class="product-switch" id="productSwitch"></div>
+            </div>
+
+            <div class="section">
+                <p class="section-title">客户会话</p>
+                <div class="row">
+                    <input class="control" id="customerIdInput" placeholder="客户ID，如 dubai-001">
+                    <button class="btn primary" onclick="switchSession()">进入</button>
                 </div>
-                <div class="chat-hdr-btns">
-                    <button class="hdr-btn" onclick="copyLastReply()">复制回复</button>
-                    <button class="hdr-btn" onclick="clearCurrentSession()">清除会话</button>
+                <button class="btn ghost" style="width:100%; margin-top:8px;" onclick="createNewSession()">新建会话</button>
+            </div>
+
+            <div class="session-list" id="sessionList"></div>
+
+            <div class="section">
+                <p class="section-title">回复设置</p>
+                <div class="field">
+                    <label for="platform">平台</label>
+                    <select id="platform">
+                        <option value="alibaba">阿里巴巴国际站</option>
+                        <option value="mic">中国制造网</option>
+                        <option value="1688">1688</option>
+                    </select>
+                </div>
+                <div class="row">
+                    <select id="replyLang" title="回复语言">
+                        <option value="en">English</option>
+                        <option value="es">Español</option>
+                        <option value="ru">Русский</option>
+                        <option value="ar">العربية</option>
+                        <option value="fr">Français</option>
+                    </select>
+                    <select id="tone" title="语气">
+                        <option value="professional">专业</option>
+                        <option value="friendly">热情</option>
+                        <option value="concise">简洁</option>
+                    </select>
+                </div>
+                <div class="row" style="margin-top:8px;">
+                    <select id="modelSelect" title="模型">
+                        <option value="flash">V4-Flash</option>
+                        <option value="pro">V4-Pro</option>
+                    </select>
+                    <input class="control" id="priceRange" placeholder="参考价">
                 </div>
             </div>
-            <div class="messages" id="messagesArea">
-                <div class="message system"><div class="msg-bubble">选择或创建一个客户会话，每个客户独立对话</div></div>
-            </div>
-            <div class="typing" id="typingIndicator"><div class="dots"><span></span><span></span><span></span></div></div>
-            <div class="input-area">
-                <div class="input-tools">
-                    <button class="tool-btn" onclick="quickAction('payment')">付款方式</button>
-                    <button class="tool-btn" onclick="quickAction('shipping')">物流方案</button>
-                    <button class="tool-btn" onclick="quickAction('sample')">寄样</button>
-                    <button class="tool-btn" onclick="quickAction('moq')">起订量</button>
-                    <button class="tool-btn" onclick="quickAction('oem')">OEM/ODM</button>
+        </aside>
+
+        <main class="main">
+            <header class="topbar">
+                <div>
+                    <h2 class="customer-title" id="currentCustomerLabel">未选择客户</h2>
+                    <div class="status-line" id="statusLine">选择产品知识分类后开始回复</div>
                 </div>
-                <div class="input-row">
-                    <textarea id="inputArea" placeholder="粘贴买家询盘内容... (Ctrl+Enter 发送)" onkeydown="if(event.key==='Enter'&&event.ctrlKey){event.preventDefault();sendMessage();}"></textarea>
-                    <button class="send-btn" id="sendBtn" onclick="sendMessage()">发送</button>
+                <div class="row">
+                    <span class="badge" id="activeProductBadge">雕塑产品</span>
+                    <button class="btn" onclick="copyLastReply()">复制回复</button>
+                    <button class="btn" onclick="clearCurrentSession()">清除会话</button>
+                    <button class="btn" onclick="toggleKnowledgePanel()">知识库</button>
+                </div>
+            </header>
+
+            <section class="messages" id="messagesArea"></section>
+
+            <footer class="composer">
+                <div class="quick-actions">
+                    <button class="chip" onclick="quickAction('price')">询价</button>
+                    <button class="chip" onclick="quickAction('sample')">样品</button>
+                    <button class="chip" onclick="quickAction('shipping')">物流</button>
+                    <button class="chip" onclick="quickAction('custom')">定制</button>
+                    <button class="chip" onclick="quickAction('followup')">跟进</button>
+                </div>
+                <textarea id="inputArea" placeholder="粘贴买家询盘内容，Ctrl+Enter 生成回复" onkeydown="handleKeydown(event)"></textarea>
+                <div class="composer-footer">
+                    <span class="hint" id="composerHint">当前使用：雕塑产品知识库</span>
+                    <button class="btn primary" id="sendBtn" onclick="sendMessage()">生成回复</button>
+                </div>
+            </footer>
+        </main>
+
+        <aside class="knowledge" id="knowledgePanel">
+            <div class="knowledge-header">
+                <div class="knowledge-title">
+                    <h2 id="knowledgeTitle">云端知识库</h2>
+                    <span class="storage-pill" id="storagePill">读取中</span>
+                </div>
+                <p class="knowledge-desc" id="knowledgeDesc">维护当前产品的回复依据，保存后团队电脑都会使用同一份数据。</p>
+            </div>
+            <div class="knowledge-body">
+                <textarea id="knowledgeEditor" placeholder="填写产品范围、材质、规格、报价口径、FAQ、交期、包装、认证、常见追问等。"></textarea>
+                <div class="knowledge-status" id="knowledgeStatus"></div>
+                <div class="row">
+                    <button class="btn primary" onclick="saveKnowledge()">保存到云端</button>
+                    <button class="btn" onclick="loadKnowledge()">重新读取</button>
                 </div>
             </div>
-        </div>
+        </aside>
     </div>
-    <div class="modal-overlay" id="uploadKBModal"><div class="modal"><h3>上传知识库文件</h3><input type="file" id="kbFileInput" accept=".txt,.md" style="margin-bottom:12px;"><textarea id="kbContentInput" placeholder="或粘贴内容..."></textarea><input type="text" id="kbFilenameInput" placeholder="文件名" style="width:100%;padding:8px 12px;border:1px solid #ddd;border-radius:6px;margin-top:8px;font-size:13px;"><div class="modal-actions"><button class="modal-btn" onclick="closeModal('uploadKBModal')">取消</button><button class="modal-btn primary" onclick="uploadKB()">保存</button></div></div></div>
-    <div class="modal-overlay" id="createKBModal"><div class="modal"><h3>新建知识库文档</h3><input type="text" id="newKBName" placeholder="文档名" style="width:100%;padding:8px 12px;border:1px solid #ddd;border-radius:6px;margin-bottom:12px;font-size:13px;"><textarea id="newKBContent" placeholder="输入知识库内容..."></textarea><div class="modal-actions"><button class="modal-btn" onclick="closeModal('createKBModal')">取消</button><button class="modal-btn primary" onclick="createKB()">创建</button></div></div></div>
+
     <div class="toast" id="toast"></div>
+
     <script>
-        let currentCustomerId='';
-        let currentSession={messages:[]};
-        let kbFiles=JSON.parse(localStorage.getItem('kb_files')||'[]');
-        const ACCESS_TOKEN_KEY='inquiry_access_token';
+        const PRODUCTS = {
+            sculpture: {
+                id: 'sculpture',
+                name: '雕塑产品',
+                shortName: '雕塑',
+                meta: '景观装置 / 艺术摆件 / 工程定制',
+                description: '用于回复雕塑、景观装置、艺术摆件、定制工程类询盘。'
+            },
+            'compressed-sofa': {
+                id: 'compressed-sofa',
+                name: '压缩沙发产品',
+                shortName: '压缩沙发',
+                meta: '卷包家具 / 跨境电商 / OEM',
+                description: '用于回复压缩沙发、卷包沙发、跨境家具、电商包装类询盘。'
+            }
+        };
 
-        document.getElementById('accessToken').value=localStorage.getItem(ACCESS_TOKEN_KEY)||'';
-        renderKBList();
+        const ACCESS_TOKEN_KEY = 'inquiry_access_token';
+        const ACTIVE_CATEGORY_KEY = 'inquiry_active_category';
+        const SESSION_KEY = 'inquiry_sessions_v2';
 
-        function getSessions(){return JSON.parse(localStorage.getItem('inquiry_sessions')||'{}');}
-        function saveSessions(s){localStorage.setItem('inquiry_sessions',JSON.stringify(s));}
-        function getKBContent(){return kbFiles.map(f=>`--- ${f.name} ---\n${f.content}`).join('\n');}
-        function isValidCustomerId(id){return /^[a-zA-Z0-9_-]{1,80}$/.test(id);}
-        function apiHeaders(){
-            const headers={'Content-Type':'application/json'};
-            const token=(localStorage.getItem(ACCESS_TOKEN_KEY)||'').trim();
-            if(token)headers['X-App-Token']=token;
+        let activeCategory = localStorage.getItem(ACTIVE_CATEGORY_KEY) || 'sculpture';
+        let currentCustomerId = '';
+        let currentSession = { messages: [] };
+        let knowledgeProfiles = {};
+        let storageMode = 'loading';
+        let knowledgeDirty = false;
+
+        init();
+
+        function init() {
+            document.getElementById('accessToken').value = localStorage.getItem(ACCESS_TOKEN_KEY) || '';
+            renderProductSwitch();
+            renderSessionList();
+            renderMessages();
+            loadKnowledge();
+        }
+
+        function apiHeaders() {
+            const headers = { 'Content-Type': 'application/json' };
+            const token = (localStorage.getItem(ACCESS_TOKEN_KEY) || '').trim();
+            if (token) headers['X-App-Token'] = token;
             return headers;
         }
-        function saveAccessToken(){
-            const token=document.getElementById('accessToken').value.trim();
-            if(token)localStorage.setItem(ACCESS_TOKEN_KEY,token);
+
+        function saveAccessToken() {
+            const token = document.getElementById('accessToken').value.trim();
+            if (token) localStorage.setItem(ACCESS_TOKEN_KEY, token);
             else localStorage.removeItem(ACCESS_TOKEN_KEY);
-            toast('访问口令已保存');
+            toast('口令已保存');
+            loadKnowledge();
         }
 
-        function renderSessionList(){
-            const s=getSessions();const list=document.getElementById('sessionList');
-            const keys=Object.keys(s).filter(isValidCustomerId);
-            if(!keys.length){list.innerHTML='<div style="text-align:center;color:#555;font-size:12px;padding:20px;">暂无会话</div>';return;}
-            list.innerHTML=keys.map(k=>`<div class="session-item ${k===currentCustomerId?'active':''}" onclick="switchToSession('${k}')"><div class="sid">${esc(k)}</div><div class="smeta">${s[k].messages.length}条消息</div><button class="sdel" onclick="event.stopPropagation();deleteSession('${k}')">✕</button></div>`).join('');
+        function product(id = activeCategory) {
+            return PRODUCTS[id] || PRODUCTS.sculpture;
         }
 
-        function createNewSession(){
-            let id=document.getElementById('customerIdInput').value.trim();
-            if(!id){id='customer-'+Date.now().toString(36);document.getElementById('customerIdInput').value=id;}
-            if(!isValidCustomerId(id)){toast('客户ID只能包含字母、数字、下划线和短横线');return;}
+        function currentProfile() {
+            return knowledgeProfiles[activeCategory] || product(activeCategory);
+        }
+
+        function renderProductSwitch() {
+            const wrap = document.getElementById('productSwitch');
+            wrap.innerHTML = Object.values(PRODUCTS).map(item => `
+                <button class="product-option ${item.id === activeCategory ? 'active' : ''}" onclick="selectCategory('${item.id}')">
+                    <span class="dot ${item.id === 'compressed-sofa' ? 'sofa' : ''}"></span>
+                    <span>
+                        <span class="product-name">${esc(item.name)}</span><br>
+                        <span class="product-meta">${esc(item.meta)}</span>
+                    </span>
+                    <span class="product-meta">${item.id === activeCategory ? '使用中' : ''}</span>
+                </button>
+            `).join('');
+
+            const active = product();
+            document.getElementById('activeProductBadge').textContent = active.name;
+            document.getElementById('composerHint').textContent = `当前使用：${active.name}知识库`;
+            document.getElementById('knowledgeTitle').textContent = active.name + '知识库';
+            document.getElementById('knowledgeDesc').textContent = active.description;
+        }
+
+        function selectCategory(id) {
+            if (!PRODUCTS[id]) return;
+            if (knowledgeDirty && !confirm('当前知识库内容还没保存，确定切换吗？')) return;
+            activeCategory = id;
+            localStorage.setItem(ACTIVE_CATEGORY_KEY, id);
+            knowledgeDirty = false;
+            renderProductSwitch();
+            renderKnowledgeEditor();
+            updateStatusLine();
+        }
+
+        async function loadKnowledge() {
+            setKnowledgeStatus('正在读取云端知识库...');
+            try {
+                const res = await fetch('/api/knowledge', { headers: apiHeaders() });
+                const data = await res.json().catch(() => ({}));
+                if (res.status === 401) {
+                    setKnowledgeStatus('需要填写正确站点口令后读取。');
+                    document.getElementById('storagePill').textContent = '需要口令';
+                    return;
+                }
+                if (!res.ok) throw new Error(data.error || '读取失败');
+                knowledgeProfiles = data.profiles || {};
+                storageMode = data.storage || 'cloud';
+                knowledgeDirty = false;
+                renderProductSwitch();
+                renderKnowledgeEditor();
+                setKnowledgeStatus('云端知识库已同步');
+                document.getElementById('storagePill').textContent = storageMode === 'netlify-blobs' ? '云端' : '本地调试';
+            } catch (error) {
+                setKnowledgeStatus('读取失败：' + error.message);
+                document.getElementById('storagePill').textContent = '离线';
+            }
+        }
+
+        async function saveKnowledge() {
+            const content = document.getElementById('knowledgeEditor').value.trim();
+            if (!content) { toast('知识库内容不能为空'); return; }
+            if (content.length > 24000) { toast('知识库内容不能超过 24000 字符'); return; }
+
+            setKnowledgeStatus('正在保存...');
+            try {
+                const res = await fetch('/api/knowledge', {
+                    method: 'PUT',
+                    headers: apiHeaders(),
+                    body: JSON.stringify({ category: activeCategory, content })
+                });
+                const data = await res.json().catch(() => ({}));
+                if (res.status === 401) throw new Error('口令错误或未填写');
+                if (!res.ok) throw new Error(data.error || '保存失败');
+                knowledgeProfiles = data.profiles || {};
+                storageMode = data.storage || storageMode;
+                knowledgeDirty = false;
+                renderKnowledgeEditor();
+                setKnowledgeStatus('已保存，团队电脑会读取同一份知识库。');
+                toast('知识库已保存');
+            } catch (error) {
+                setKnowledgeStatus('保存失败：' + error.message);
+            }
+        }
+
+        function renderKnowledgeEditor() {
+            const profile = currentProfile();
+            document.getElementById('knowledgeEditor').value = profile.content || '';
+            document.getElementById('knowledgeEditor').oninput = () => {
+                knowledgeDirty = true;
+                setKnowledgeStatus('有未保存修改');
+            };
+            const updatedAt = profile.updatedAt ? new Date(profile.updatedAt).toLocaleString() : '尚未保存';
+            setKnowledgeStatus(`最后更新：${updatedAt}`);
+        }
+
+        function setKnowledgeStatus(text) {
+            document.getElementById('knowledgeStatus').textContent = text;
+        }
+
+        function getSessions() {
+            return JSON.parse(localStorage.getItem(SESSION_KEY) || '{}');
+        }
+
+        function saveSessions(sessions) {
+            localStorage.setItem(SESSION_KEY, JSON.stringify(sessions));
+        }
+
+        function isValidCustomerId(id) {
+            return /^[a-zA-Z0-9_-]{1,80}$/.test(id);
+        }
+
+        function createNewSession() {
+            let id = document.getElementById('customerIdInput').value.trim();
+            if (!id) {
+                id = 'customer-' + Date.now().toString(36);
+                document.getElementById('customerIdInput').value = id;
+            }
             switchToSession(id);
         }
-        function switchSession(){const id=document.getElementById('customerIdInput').value.trim();if(!id){toast('请输入客户ID');return;}if(!isValidCustomerId(id)){toast('客户ID只能包含字母、数字、下划线和短横线');return;}switchToSession(id);}
-        function switchToSession(id){
-            currentCustomerId=id;document.getElementById('customerIdInput').value=id;
-            document.getElementById('currentCustomerLabel').textContent=id;
-            const s=getSessions();currentSession=s[id]||{messages:[]};renderMessages();renderSessionList();
-        }
-        function deleteSession(id){if(!confirm('确定删除？'))return;const s=getSessions();delete s[id];saveSessions(s);if(id===currentCustomerId){currentCustomerId='';currentSession={messages:[]};document.getElementById('currentCustomerLabel').textContent='未选择客户';renderMessages();}renderSessionList();}
-        function clearCurrentSession(){if(!currentCustomerId){toast('请先选择客户');return;}deleteSession(currentCustomerId);}
 
-        function renderMessages(){
-            const area=document.getElementById('messagesArea');
-            if(!currentSession.messages.length){area.innerHTML='<div class="message system"><div class="msg-bubble">在下方输入框粘贴买家询盘，AI将生成专业回复</div></div>';return;}
-            area.innerHTML=currentSession.messages.map(m=>{
-                if(m.role==='system')return'';
-                return`<div class="msg ${m.role}"><div class="msg-label">${m.role==='user'?'买家询盘':'AI回复'}</div><div class="msg-bubble">${esc(m.content)}</div></div>`;
-            }).join('');
-            area.scrollTop=area.scrollHeight;
+        function switchSession() {
+            const id = document.getElementById('customerIdInput').value.trim();
+            if (!id) { toast('请输入客户ID'); return; }
+            switchToSession(id);
         }
 
-        async function sendMessage(){
-            const input=document.getElementById('inputArea');const text=input.value.trim();
-            if(!text)return;if(!currentCustomerId){toast('请先选择客户');return;}
-            currentSession.messages.push({role:'user',content:text});renderMessages();input.value='';
-            document.getElementById('typingIndicator').classList.add('show');document.getElementById('sendBtn').disabled=true;
-            try{
-                const res=await fetch('/api/generate',{method:'POST',headers:apiHeaders(),
-                    body:JSON.stringify({customerId:currentCustomerId,inquiry:text,platform:document.getElementById('platform').value,lang:document.getElementById('replyLang').value,tone:document.getElementById('tone').value,priceRange:document.getElementById('priceRange').value,model:document.getElementById('modelSelect').value,knowledgeBase:getKBContent()})});
-                const data=await res.json().catch(()=>({error:'服务返回异常'}));
-                if(res.ok){currentSession.messages.push({role:'assistant',content:data.reply});const s=getSessions();s[currentCustomerId]=currentSession;saveSessions(s);renderMessages();renderSessionList();}
-                else if(res.status===401){toast('访问口令错误或未填写');currentSession.messages.pop();renderMessages();}
-                else{toast('生成失败: '+(data.error||''));currentSession.messages.pop();renderMessages();}
-            }catch(e){toast('连接失败: '+e.message);currentSession.messages.pop();renderMessages();}
-            finally{document.getElementById('typingIndicator').classList.remove('show');document.getElementById('sendBtn').disabled=false;}
+        function switchToSession(id) {
+            if (!isValidCustomerId(id)) {
+                toast('客户ID只能包含字母、数字、下划线和短横线');
+                return;
+            }
+            currentCustomerId = id;
+            document.getElementById('customerIdInput').value = id;
+            document.getElementById('currentCustomerLabel').textContent = id;
+            const sessions = getSessions();
+            currentSession = sessions[id] || { messages: [] };
+            renderSessionList();
+            renderMessages();
+            updateStatusLine();
         }
 
-        function quickAction(type){
-            if(!currentCustomerId){toast('请先选择客户');return;}
-            const p={payment:'请回复买家关于付款方式的询问，包括T/T、L/C、Trade Assurance',shipping:'请回复买家关于物流方案的问题，海运/空运/DDP',sample:'请回复买家关于寄样的问题',moq:'请回复买家关于起订量的问题，首次合作可灵活',oem:'请回复买家关于OEM/ODM定制的问题'};
-            document.getElementById('inputArea').value=p[type]||'';document.getElementById('inputArea').focus();
+        function renderSessionList() {
+            const sessions = getSessions();
+            const ids = Object.keys(sessions).filter(isValidCustomerId);
+            const list = document.getElementById('sessionList');
+            if (!ids.length) {
+                list.innerHTML = '<div class="hint" style="padding:12px;">暂无会话</div>';
+                return;
+            }
+            list.innerHTML = ids.map(id => `
+                <button class="session-item ${id === currentCustomerId ? 'active' : ''}" onclick="switchToSession('${id}')">
+                    <span>
+                        <span class="session-id">${esc(id)}</span><br>
+                        <span class="session-count">${sessions[id].messages.length} 条消息</span>
+                    </span>
+                    <span class="delete-btn" onclick="event.stopPropagation(); deleteSession('${id}')">删除</span>
+                </button>
+            `).join('');
         }
 
-        function renderKBList(){
-            const list=document.getElementById('kbList');
-            if(!kbFiles.length){list.innerHTML='<div style="text-align:center;color:#555;font-size:11px;padding:10px;">暂无知识库</div>';return;}
-            list.innerHTML=kbFiles.map((f,i)=>`<div class="kb-item"><span class="kname">📄 ${esc(f.name)}</span><span class="ksize">${(f.content.length/1024).toFixed(1)}KB</span><button class="kdel" onclick="deleteKB(${i})">✕</button></div>`).join('');
+        function deleteSession(id) {
+            if (!confirm('确定删除这个客户会话？')) return;
+            const sessions = getSessions();
+            delete sessions[id];
+            saveSessions(sessions);
+            if (id === currentCustomerId) {
+                currentCustomerId = '';
+                currentSession = { messages: [] };
+                document.getElementById('currentCustomerLabel').textContent = '未选择客户';
+            }
+            renderSessionList();
+            renderMessages();
+            updateStatusLine();
         }
-        function showUploadKB(){document.getElementById('uploadKBModal').classList.add('show');}
-        function showCreateKB(){document.getElementById('createKBModal').classList.add('show');}
-        function closeModal(id){document.getElementById(id).classList.remove('show');}
-        async function uploadKB(){
-            const fi=document.getElementById('kbFileInput');const ci=document.getElementById('kbContentInput');const ni=document.getElementById('kbFilenameInput');
-            let name=ni.value.trim(),content=ci.value.trim();
-            if(fi.files.length>0){name=name||fi.files[0].name;content=await fi.files[0].text();}
-            if(!name||!content){toast('请提供文件名和内容');return;}
-            kbFiles.push({name,content});localStorage.setItem('kb_files',JSON.stringify(kbFiles));renderKBList();closeModal('uploadKBModal');fi.value='';ci.value='';ni.value='';toast('知识库已更新');
-        }
-        function createKB(){
-            const n=document.getElementById('newKBName').value.trim(),c=document.getElementById('newKBContent').value.trim();
-            if(!n||!c){toast('请填写');return;}
-            kbFiles.push({name:n,content:c});localStorage.setItem('kb_files',JSON.stringify(kbFiles));renderKBList();closeModal('createKBModal');document.getElementById('newKBName').value='';document.getElementById('newKBContent').value='';toast('文档已创建');
-        }
-        function deleteKB(i){if(!confirm('确定删除？'))return;kbFiles.splice(i,1);localStorage.setItem('kb_files',JSON.stringify(kbFiles));renderKBList();}
 
-        function copyLastReply(){const msgs=currentSession.messages.filter(m=>m.role==='assistant');if(!msgs.length){toast('没有可复制的回复');return;}navigator.clipboard.writeText(msgs[msgs.length-1].content).then(()=>toast('已复制'));}
-        function esc(t){return(t||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');}
-        function toast(m){const t=document.getElementById('toast');t.textContent=m;t.classList.add('show');setTimeout(()=>t.classList.remove('show'),2000);}
+        function clearCurrentSession() {
+            if (!currentCustomerId) { toast('请先选择客户'); return; }
+            deleteSession(currentCustomerId);
+        }
+
+        function renderMessages() {
+            const area = document.getElementById('messagesArea');
+            if (!currentSession.messages.length) {
+                area.innerHTML = `
+                    <div class="empty-state">
+                        <div>
+                            <strong>选择客户后粘贴询盘</strong><br>
+                            系统会按当前产品知识库生成可复制的业务回复
+                        </div>
+                    </div>
+                `;
+                return;
+            }
+            area.innerHTML = currentSession.messages.map(message => `
+                <div class="message ${message.role}">
+                    <div class="message-label">${message.role === 'user' ? '买家询盘' : 'AI回复'}</div>
+                    <div class="bubble">${esc(message.content)}</div>
+                </div>
+            `).join('');
+            area.scrollTop = area.scrollHeight;
+        }
+
+        async function sendMessage() {
+            const input = document.getElementById('inputArea');
+            const text = input.value.trim();
+            if (!text) return;
+            if (!currentCustomerId) { toast('请先选择或创建客户会话'); return; }
+
+            currentSession.messages.push({ role: 'user', content: text });
+            renderMessages();
+            input.value = '';
+            setSending(true);
+
+            try {
+                const unsavedKnowledge = knowledgeDirty ? document.getElementById('knowledgeEditor').value.trim() : '';
+                const res = await fetch('/api/generate', {
+                    method: 'POST',
+                    headers: apiHeaders(),
+                    body: JSON.stringify({
+                        customerId: currentCustomerId,
+                        inquiry: text,
+                        platform: document.getElementById('platform').value,
+                        lang: document.getElementById('replyLang').value,
+                        tone: document.getElementById('tone').value,
+                        priceRange: document.getElementById('priceRange').value,
+                        model: document.getElementById('modelSelect').value,
+                        knowledgeCategory: activeCategory,
+                        knowledgeBase: unsavedKnowledge
+                    })
+                });
+                const data = await res.json().catch(() => ({ error: '服务返回异常' }));
+                if (res.status === 401) throw new Error('口令错误或未填写');
+                if (!res.ok) throw new Error(data.error || '生成失败');
+
+                currentSession.messages.push({ role: 'assistant', content: data.reply });
+                const sessions = getSessions();
+                sessions[currentCustomerId] = currentSession;
+                saveSessions(sessions);
+                renderMessages();
+                renderSessionList();
+                updateStatusLine();
+            } catch (error) {
+                currentSession.messages.pop();
+                renderMessages();
+                toast('生成失败：' + error.message);
+            } finally {
+                setSending(false);
+            }
+        }
+
+        function setSending(isSending) {
+            const btn = document.getElementById('sendBtn');
+            btn.disabled = isSending;
+            btn.textContent = isSending ? '生成中...' : '生成回复';
+        }
+
+        function handleKeydown(event) {
+            if (event.key === 'Enter' && event.ctrlKey) {
+                event.preventDefault();
+                sendMessage();
+            }
+        }
+
+        function quickAction(type) {
+            const templates = {
+                price: `请根据当前${product().name}知识库，回复买家关于价格、MOQ、规格确认的问题。`,
+                sample: `请回复买家关于样品、样品费、寄送方式和后续大货订单的询问。`,
+                shipping: `请回复买家关于包装、运输方式、交期和贸易条款的问题。`,
+                custom: `请回复买家关于定制、颜色、尺寸、LOGO或项目方案的问题。`,
+                followup: `请写一封简短跟进回复，礼貌提醒买家确认规格、数量和收货国家。`
+            };
+            document.getElementById('inputArea').value = templates[type] || '';
+            document.getElementById('inputArea').focus();
+        }
+
+        function copyLastReply() {
+            const replies = currentSession.messages.filter(item => item.role === 'assistant');
+            if (!replies.length) { toast('暂无可复制回复'); return; }
+            navigator.clipboard.writeText(replies[replies.length - 1].content).then(() => toast('已复制'));
+        }
+
+        function updateStatusLine() {
+            const count = currentSession.messages.length;
+            document.getElementById('statusLine').textContent = `${product().name} · ${count} 条消息 · ${storageMode === 'netlify-blobs' ? '云端知识库' : '本地调试'}`;
+        }
+
+        function toggleKnowledgePanel() {
+            document.getElementById('knowledgePanel').classList.toggle('open');
+        }
+
+        function esc(value) {
+            return String(value || '')
+                .replace(/&/g, '&amp;')
+                .replace(/</g, '&lt;')
+                .replace(/>/g, '&gt;')
+                .replace(/"/g, '&quot;');
+        }
+
+        function toast(message) {
+            const node = document.getElementById('toast');
+            node.textContent = message;
+            node.classList.add('show');
+            setTimeout(() => node.classList.remove('show'), 2600);
+        }
     </script>
 </body>
 </html>

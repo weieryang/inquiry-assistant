@@ -5,11 +5,12 @@
   "scripts": {
     "dev": "node server.js",
     "start": "node server.js",
-    "check": "node --check server.js && node --check api/generate.js && node --check netlify/functions/generate.js"
+    "check": "node --check server.js && node --check api/generate.js && node --check netlify/functions/_knowledgeStore.js && node --check netlify/functions/generate.js && node --check netlify/functions/knowledge.js"
   },
   "dependencies": {
-    "express": "^4.21.0",
+    "@netlify/blobs": "^10.1.0",
     "cors": "^2.8.5",
-    "dotenv": "^16.4.5"
+    "dotenv": "^16.4.5",
+    "express": "^4.21.0"
   }
 }

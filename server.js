@@ -3,6 +3,12 @@ const express = require('express');
 const cors = require('cors');
 const fs = require('fs');
 const path = require('path');
+const {
+    DEFAULT_PROFILES,
+    getKnowledgeText,
+    readKnowledgeData,
+    writeKnowledgeProfile
+} = require('./netlify/functions/_knowledgeStore');
 
 const app = express();
 const ALLOWED_ORIGINS = (process.env.ALLOWED_ORIGINS || 'http://localhost:3000,http://localhost:8888,https://xunpanhuifu.netlify.app')
@@ -238,7 +244,18 @@ ${knowledgeBase || '（暂无产品知识库，请根据通用知识回复）'}
 // 生成回复（核心接口）
 app.post('/api/generate', requireAccessToken, async (req, res) => {
     try {
-        const { customerId, inquiry, platform, lang, tone, priceRange, forceNew, model } = req.body;
+        const {
+            customerId,
+            inquiry,
+            platform,
+            lang,
+            tone,
+            priceRange,
+            forceNew,
+            model,
+            knowledgeBase: requestKnowledgeBase,
+            knowledgeCategory = 'sculpture'
+        } = req.body;
 
         if (!/^[a-zA-Z0-9_-]{1,80}$/.test(String(customerId || ''))) {
             return res.status(400).json({ error: 'customerId 只能包含字母、数字、下划线和短横线' });
@@ -251,8 +268,17 @@ app.post('/api/generate', requireAccessToken, async (req, res) => {
         // Load or create session
         let session = forceNew ? { customerId, messages: [], createdAt: new Date().toISOString() } : loadSession(customerId);
 
-        // Load knowledge base
-        const knowledgeBase = loadKnowledgeBase();
+        if (!DEFAULT_PROFILES[knowledgeCategory]) {
+            return res.status(400).json({ error: 'knowledgeCategory must be sculpture or compressed-sofa' });
+        }
+
+        // Load product knowledge from the same cloud/local store used by Netlify Functions.
+        const cloudKnowledge = await getKnowledgeText(knowledgeCategory);
+        const knowledgeBase = [
+            `当前产品知识库：${cloudKnowledge.profile.name}`,
+            cloudKnowledge.text,
+            requestKnowledgeBase ? `未保存补充信息：\n${requestKnowledgeBase}` : ''
+        ].filter(Boolean).join('\n\n');
 
         // Build messages for DeepSeek
         const systemPrompt = buildSystemPrompt(knowledgeBase, platform, lang, tone, priceRange);
@@ -281,6 +307,8 @@ app.post('/api/generate', requireAccessToken, async (req, res) => {
             reply: result.content,
             model: result.model,
             customerId,
+            knowledgeCategory: cloudKnowledge.profile.id,
+            knowledgeUpdatedAt: cloudKnowledge.profile.updatedAt,
             messageCount: session.messages.length,
             sessionId: customerId
         });
@@ -367,6 +395,30 @@ app.get('/api/sessions', (req, res) => {
 });
 
 // ===== Knowledge Base Management =====
+
+app.get('/api/knowledge', requireAccessToken, async (req, res) => {
+    try {
+        res.json(await readKnowledgeData());
+    } catch (err) {
+        res.status(500).json({ error: err.message });
+    }
+});
+
+app.put('/api/knowledge', requireAccessToken, async (req, res) => {
+    try {
+        const category = String(req.body.category || '').trim();
+        const content = String(req.body.content || '').trim();
+
+        if (!category) return res.status(400).json({ error: 'category is required' });
+        if (!content || content.length > 24000) {
+            return res.status(400).json({ error: 'content is required and must be 24000 characters or less' });
+        }
+
+        res.json(await writeKnowledgeProfile(category, { content }));
+    } catch (err) {
+        res.status(err.statusCode || 500).json({ error: err.message });
+    }
+});
 
 // 获取知识库列表
 app.get('/api/knowledge', (req, res) => {

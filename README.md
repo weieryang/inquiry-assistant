@@ -1,17 +1,26 @@
 # 询盘回复助手
 
-面向外贸业务的询盘回复助手，前端部署在 Netlify，后端通过 Netlify Functions 调用 DeepSeek Chat Completions API。
+面向外贸业务的询盘回复工作台。前端部署在 Netlify，后端通过 Netlify Functions 调用 DeepSeek，并用 Netlify Blobs 保存产品知识库。
 
 线上地址：
 
 <https://xunpanhuifu.netlify.app/>
 
-## 当前架构
+## 当前能力
+
+- 两套云端产品知识库：`雕塑产品`、`压缩沙发产品`。
+- 业务员在不同电脑、不同网络打开同一个 Netlify 地址后，填写站点口令即可读取同一份知识库。
+- 生成回复时会按当前选择的产品分类自动带入对应知识。
+- 客户会话目前仍保存在浏览器本地，适合业务员个人临时会话；产品知识已经不依赖本地。
+
+## 文件结构
 
 - `public/index.html`: Netlify 线上页面。
-- `netlify/functions/generate.js`: 线上生成回复接口，访问路径为 `/api/generate`。
+- `netlify/functions/generate.js`: 生成回复接口，访问路径为 `/api/generate`。
+- `netlify/functions/knowledge.js`: 云端知识库读写接口，访问路径为 `/api/knowledge`。
+- `netlify/functions/_knowledgeStore.js`: Netlify Blobs 存储封装，本地开发时自动回退到文件。
 - `server.js`: 本地 Express 调试入口。
-- `index.html`: GitHub Pages 兼容跳转页，跳转到 Netlify 线上版本。
+- `index.html`: GitHub Pages 兼容跳转页。
 
 ## Netlify 环境变量
 
@@ -23,9 +32,9 @@ ALLOWED_ORIGINS=https://xunpanhuifu.netlify.app
 APP_ACCESS_TOKEN=your-private-passphrase
 ```
 
-`DEEPSEEK_API_KEY` 必填。不要提交到 GitHub。
+`DEEPSEEK_API_KEY` 必填，不能提交到 GitHub。
 
-`APP_ACCESS_TOKEN` 建议设置。设置后，页面左侧“口令”输入框需要填写同一个口令，接口才会调用 DeepSeek。这样可以避免公开站点被陌生人直接刷你的 API 额度。
+`APP_ACCESS_TOKEN` 建议设置。设置后，页面左侧“站点口令”输入同一个值，业务员才能读取知识库和生成回复。
 
 可选模型覆盖：
 
@@ -50,10 +59,11 @@ npm run dev
 
 ```bash
 npm run check
+npm audit --audit-level=moderate
 ```
-
-该命令会检查主要服务端 JS 文件语法。
 
 ## 数据说明
 
-当前线上版的客户会话和知识库保存在浏览器 `localStorage` 中，适合个人使用和原型验证。多人业务协作建议下一步接入 Supabase、Neon 或 Netlify Blobs，把客户会话、产品知识库和用户权限移到服务端。
+线上产品知识库存储在 Netlify Blobs，key 为 `product-knowledge-v1`。本地开发没有 Netlify Blobs 环境时，会写入 `knowledge/cloud-knowledge.json`，该文件不应提交。
+
+后续如果需要多人账号、客户资料共享、权限分级、会话全量归档，再升级到 Supabase、Neon 或专门 CRM 数据库会更合适。

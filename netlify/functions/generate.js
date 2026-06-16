@@ -1,4 +1,5 @@
 const https = require('https');
+const { DEFAULT_PROFILES, getKnowledgeText } = require('./_knowledgeStore');
 
 const DEFAULT_ALLOWED_ORIGINS = [
     'https://xunpanhuifu.netlify.app',
@@ -79,6 +80,7 @@ function validatePayload(payload) {
     const inquiry = String(payload.inquiry || '').trim();
     const knowledgeBase = String(payload.knowledgeBase || '');
     const priceRange = String(payload.priceRange || '').trim();
+    const knowledgeCategory = String(payload.knowledgeCategory || 'sculpture').trim();
 
     if (!/^[a-zA-Z0-9_-]{1,80}$/.test(customerId)) {
         errors.push('customerId must use 1-80 letters, numbers, underscores, or hyphens');
@@ -92,8 +94,11 @@ function validatePayload(payload) {
     if (priceRange.length > LIMITS.priceRange) {
         errors.push(`priceRange must be ${LIMITS.priceRange} characters or less`);
     }
+    if (!DEFAULT_PROFILES[knowledgeCategory]) {
+        errors.push('knowledgeCategory must be sculpture or compressed-sofa');
+    }
 
-    return { errors, customerId, inquiry, knowledgeBase, priceRange };
+    return { errors, customerId, inquiry, knowledgeBase, knowledgeCategory, priceRange };
 }
 
 function buildSystemPrompt({ knowledgeBase, platform, lang, tone, priceRange }) {
@@ -252,8 +257,15 @@ exports.handler = async (event) => {
         ? (process.env.DEEPSEEK_MODEL_PRO || 'deepseek-v4-pro')
         : (process.env.DEEPSEEK_MODEL_FLASH || 'deepseek-v4-flash');
 
+    const cloudKnowledge = await getKnowledgeText(validated.knowledgeCategory);
+    const mergedKnowledge = [
+        `Active product knowledge: ${cloudKnowledge.profile.name}`,
+        cloudKnowledge.text,
+        validated.knowledgeBase ? `Additional unsaved context:\n${validated.knowledgeBase}` : ''
+    ].filter(Boolean).join('\n\n');
+
     const systemPrompt = buildSystemPrompt({
-        knowledgeBase: validated.knowledgeBase,
+        knowledgeBase: mergedKnowledge,
         platform: payload.platform,
         lang: payload.lang,
         tone: payload.tone,
@@ -273,7 +285,9 @@ exports.handler = async (event) => {
         return json(200, headers, {
             reply,
             model,
-            customerId: validated.customerId
+            customerId: validated.customerId,
+            knowledgeCategory: cloudKnowledge.profile.id,
+            knowledgeUpdatedAt: cloudKnowledge.profile.updatedAt
         });
     } catch (error) {
         console.error('DeepSeek generate failed:', error.message);
