@@ -4,7 +4,8 @@
   "private": true,
   "scripts": {
     "dev": "node server.js",
-    "start": "node server.js"
+    "start": "node server.js",
+    "check": "node --check server.js && node --check api/generate.js && node --check netlify/functions/generate.js"
   },
   "dependencies": {
     "express": "^4.21.0",

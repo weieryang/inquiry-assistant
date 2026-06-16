@@ -3,17 +3,29 @@ const express = require('express');
 const cors = require('cors');
 const fs = require('fs');
 const path = require('path');
-const { v4: uuidv4 } = require('uuid');
 
 const app = express();
-app.use(cors());
-app.use(express.json({ limit: '10mb' }));
-app.use(express.static(__dirname));
+const ALLOWED_ORIGINS = (process.env.ALLOWED_ORIGINS || 'http://localhost:3000,http://localhost:8888,https://xunpanhuifu.netlify.app')
+    .split(',')
+    .map(item => item.trim())
+    .filter(Boolean);
+
+app.use(cors({
+    origin(origin, callback) {
+        if (!origin || ALLOWED_ORIGINS.includes('*') || ALLOWED_ORIGINS.includes(origin)) {
+            callback(null, true);
+            return;
+        }
+        callback(new Error('Not allowed by CORS'));
+    }
+}));
+app.use(express.json({ limit: '1mb' }));
+app.use(express.static(path.join(__dirname, 'public')));
 
 const PORT = process.env.PORT || 3000;
 const API_KEY = process.env.DEEPSEEK_API_KEY;
-const MODEL_FLASH = 'deepseek-v4-flash';
-const MODEL_PRO = 'deepseek-v4-pro';
+const MODEL_FLASH = process.env.DEEPSEEK_MODEL_FLASH || 'deepseek-v4-flash';
+const MODEL_PRO = process.env.DEEPSEEK_MODEL_PRO || 'deepseek-v4-pro';
 const KNOWLEDGE_DIR = path.join(__dirname, 'knowledge');
 const SESSIONS_DIR = path.join(__dirname, 'sessions');
 
@@ -100,6 +112,29 @@ function getSessionPath(customerId) {
     return path.join(SESSIONS_DIR, `${safeId}.json`);
 }
 
+function safeFileName(filename) {
+    return filename.replace(/[^a-zA-Z0-9_\-\u4e00-\u9fff\.]/g, '_');
+}
+
+function requireAccessToken(req, res, next) {
+    const requiredToken = process.env.APP_ACCESS_TOKEN;
+    if (!requiredToken) {
+        next();
+        return;
+    }
+
+    const auth = req.get('authorization') || '';
+    const bearerToken = auth.toLowerCase().startsWith('bearer ') ? auth.slice(7).trim() : '';
+    const appToken = req.get('x-app-token') || '';
+
+    if (appToken === requiredToken || bearerToken === requiredToken) {
+        next();
+        return;
+    }
+
+    res.status(401).json({ error: 'Access token required' });
+}
+
 function loadSession(customerId) {
     const sessionPath = getSessionPath(customerId);
     if (fs.existsSync(sessionPath)) {
@@ -120,6 +155,10 @@ function clearSession(customerId) {
 
 // ===== DeepSeek API =====
 async function callDeepSeek(messages, modelChoice = 'flash') {
+    if (!API_KEY) {
+        throw new Error('DeepSeek API key is not configured');
+    }
+
     const model = modelChoice === 'pro' ? MODEL_PRO : MODEL_FLASH;
     const response = await fetch('https://api.deepseek.com/chat/completions', {
         method: 'POST',
@@ -197,12 +236,16 @@ ${knowledgeBase || '（暂无产品知识库，请根据通用知识回复）'}
 // ===== API Routes =====
 
 // 生成回复（核心接口）
-app.post('/api/generate', async (req, res) => {
+app.post('/api/generate', requireAccessToken, async (req, res) => {
     try {
         const { customerId, inquiry, platform, lang, tone, priceRange, forceNew, model } = req.body;
 
-        if (!customerId || !inquiry) {
-            return res.status(400).json({ error: '缺少 customerId 或 inquiry' });
+        if (!/^[a-zA-Z0-9_-]{1,80}$/.test(String(customerId || ''))) {
+            return res.status(400).json({ error: 'customerId 只能包含字母、数字、下划线和短横线' });
+        }
+
+        if (!inquiry || String(inquiry).length > 6000) {
+            return res.status(400).json({ error: 'inquiry 不能为空，且不能超过 6000 字符' });
         }
 
         // Load or create session
@@ -347,7 +390,7 @@ app.post('/api/knowledge', (req, res) => {
     const { filename, content } = req.body;
     if (!filename || !content) return res.status(400).json({ error: '缺少 filename 或 content' });
 
-    const safeName = filename.replace(/[^a-zA-Z0-9_\-\u4e00-\u9fff\.]/g, '_');
+    const safeName = safeFileName(filename);
     const filePath = path.join(KNOWLEDGE_DIR, safeName);
     fs.writeFileSync(filePath, content, 'utf-8');
     res.json({ success: true, filename: safeName });
@@ -355,7 +398,7 @@ app.post('/api/knowledge', (req, res) => {
 
 // 删除知识库文件
 app.delete('/api/knowledge/:filename', (req, res) => {
-    const filePath = path.join(KNOWLEDGE_DIR, req.params.filename);
+    const filePath = path.join(KNOWLEDGE_DIR, safeFileName(req.params.filename));
     if (fs.existsSync(filePath)) {
         fs.unlinkSync(filePath);
         res.json({ success: true });
