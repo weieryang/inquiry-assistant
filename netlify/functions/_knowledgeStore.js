@@ -110,7 +110,8 @@ async function readKnowledgeData(event) {
         const data = readFromFile() || { profiles: cloneDefaults() };
         return {
             profiles: normalizeProfiles(data),
-            storage: 'local-file'
+            storage: 'local-file',
+            storageError: `${error.name || 'Error'}: ${error.message || 'Netlify Blobs unavailable'}`
         };
     }
 }
