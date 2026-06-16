@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>询盘回复助手 - DeepSeek V4</title>
+    <title>璇㈢洏鍥炲鍔╂墜 - DeepSeek V4</title>
     <style>
         * { margin: 0; padding: 0; box-sizing: border-box; }
         body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; background: #f0f2f5; color: #333; height: 100vh; display: flex; flex-direction: column; }
@@ -98,37 +98,37 @@
 <body>
     <div class="header">
         <div style="display:flex; align-items:center; gap:12px;">
-            <h1>询盘回复助手</h1>
+            <h1>璇㈢洏鍥炲鍔╂墜</h1>
             <span class="ver">DeepSeek V4</span>
         </div>
-        <div style="font-size:12px; opacity:0.7;">在线版</div>
+        <div style="font-size:12px; opacity:0.7;">鍦ㄧ嚎鐗?/div>
     </div>
     <div class="app">
         <div class="sidebar">
             <div class="sb-section">
-                <h3>客户会话</h3>
+                <h3>瀹㈡埛浼氳瘽</h3>
                 <div class="session-input">
-                    <input type="text" id="customerIdInput" placeholder="客户ID (如: dubai-hotel-001)">
-                    <button onclick="switchSession()">切换</button>
+                    <input type="text" id="customerIdInput" placeholder="瀹㈡埛ID (濡? dubai-hotel-001)">
+                    <button onclick="switchSession()">鍒囨崲</button>
                 </div>
-                <button class="new-session-btn" onclick="createNewSession()">+ 新建会话</button>
+                <button class="new-session-btn" onclick="createNewSession()">+ 鏂板缓浼氳瘽</button>
             </div>
             <div class="session-list" id="sessionList">
-                <div style="text-align:center; color:#555; font-size:12px; padding:20px;">暂无会话</div>
+                <div style="text-align:center; color:#555; font-size:12px; padding:20px;">鏆傛棤浼氳瘽</div>
             </div>
             <div class="sb-section">
-                <h3>回复设置</h3>
-                <div class="sb-row"><label>平台</label><select id="platform"><option value="alibaba">国际站</option><option value="mic">中国制造网</option><option value="1688">1688</option></select></div>
-                <div class="sb-row"><label>语言</label><select id="replyLang"><option value="en">English</option><option value="es">Español</option><option value="ru">Русский</option><option value="ar">العربية</option><option value="pt">Português</option><option value="fr">Français</option><option value="de">Deutsch</option><option value="tr">Türkçe</option></select></div>
-                <div class="sb-row"><label>语气</label><select id="tone"><option value="professional">专业商务</option><option value="friendly">热情友好</option><option value="concise">简洁高效</option></select></div>
-                <div class="sb-row"><label>模型</label><select id="modelSelect"><option value="flash">V4-Flash (省钱)</option><option value="pro">V4-Pro (高质量)</option></select></div>
-                <div class="sb-row"><label>价格</label><input type="text" id="priceRange" placeholder="如: $5-15/件"></div>
+                <h3>鍥炲璁剧疆</h3>
+                <div class="sb-row"><label>骞冲彴</label><select id="platform"><option value="alibaba">鍥介檯绔?/option><option value="mic">涓浗鍒堕€犵綉</option><option value="1688">1688</option></select></div>
+                <div class="sb-row"><label>璇█</label><select id="replyLang"><option value="en">English</option><option value="es">Espa帽ol</option><option value="ru">袪褍褋褋泻懈泄</option><option value="ar">丕賱毓乇亘賷丞</option><option value="pt">Portugu锚s</option><option value="fr">Fran莽ais</option><option value="de">Deutsch</option><option value="tr">T眉rk莽e</option></select></div>
+                <div class="sb-row"><label>璇皵</label><select id="tone"><option value="professional">涓撲笟鍟嗗姟</option><option value="friendly">鐑儏鍙嬪ソ</option><option value="concise">绠€娲侀珮鏁?/option></select></div>
+                <div class="sb-row"><label>妯″瀷</label><select id="modelSelect"><option value="flash">V4-Flash (鐪侀挶)</option><option value="pro">V4-Pro (楂樿川閲?</option></select></div>
+                <div class="sb-row"><label>浠锋牸</label><input type="text" id="priceRange" placeholder="濡? $5-15/浠?></div>
             </div>
             <div class="sb-section">
-                <h3>知识库</h3>
+                <h3>鐭ヨ瘑搴?/h3>
                 <div class="kb-actions">
-                    <button class="kb-btn" onclick="showUploadKB()">上传文件</button>
-                    <button class="kb-btn" onclick="showCreateKB()">新建文档</button>
+                    <button class="kb-btn" onclick="showUploadKB()">涓婁紶鏂囦欢</button>
+                    <button class="kb-btn" onclick="showCreateKB()">鏂板缓鏂囨。</button>
                 </div>
                 <div class="kb-list" id="kbList"></div>
             </div>
@@ -136,35 +136,35 @@
         <div class="main">
             <div class="chat-header">
                 <div style="display:flex; align-items:center; gap:12px;">
-                    <span class="cc" id="currentCustomerLabel">未选择客户</span>
-                    <span class="badge badge-alibaba" id="platformBadge">国际站</span>
+                    <span class="cc" id="currentCustomerLabel">鏈€夋嫨瀹㈡埛</span>
+                    <span class="badge badge-alibaba" id="platformBadge">鍥介檯绔?/span>
                 </div>
                 <div class="chat-hdr-btns">
-                    <button class="hdr-btn" onclick="copyLastReply()">复制回复</button>
-                    <button class="hdr-btn" onclick="clearCurrentSession()">清除会话</button>
+                    <button class="hdr-btn" onclick="copyLastReply()">澶嶅埗鍥炲</button>
+                    <button class="hdr-btn" onclick="clearCurrentSession()">娓呴櫎浼氳瘽</button>
                 </div>
             </div>
             <div class="messages" id="messagesArea">
-                <div class="message system"><div class="msg-bubble">选择或创建一个客户会话，每个客户独立对话</div></div>
+                <div class="message system"><div class="msg-bubble">閫夋嫨鎴栧垱寤轰竴涓鎴蜂細璇濓紝姣忎釜瀹㈡埛鐙珛瀵硅瘽</div></div>
             </div>
             <div class="typing" id="typingIndicator"><div class="dots"><span></span><span></span><span></span></div></div>
             <div class="input-area">
                 <div class="input-tools">
-                    <button class="tool-btn" onclick="quickAction('payment')">付款方式</button>
-                    <button class="tool-btn" onclick="quickAction('shipping')">物流方案</button>
-                    <button class="tool-btn" onclick="quickAction('sample')">寄样</button>
-                    <button class="tool-btn" onclick="quickAction('moq')">起订量</button>
+                    <button class="tool-btn" onclick="quickAction('payment')">浠樻鏂瑰紡</button>
+                    <button class="tool-btn" onclick="quickAction('shipping')">鐗╂祦鏂规</button>
+                    <button class="tool-btn" onclick="quickAction('sample')">瀵勬牱</button>
+                    <button class="tool-btn" onclick="quickAction('moq')">璧疯閲?/button>
                     <button class="tool-btn" onclick="quickAction('oem')">OEM/ODM</button>
                 </div>
                 <div class="input-row">
-                    <textarea id="inputArea" placeholder="粘贴买家询盘内容... (Ctrl+Enter 发送)" onkeydown="if(event.key==='Enter'&&event.ctrlKey){event.preventDefault();sendMessage();}"></textarea>
-                    <button class="send-btn" id="sendBtn" onclick="sendMessage()">发送</button>
+                    <textarea id="inputArea" placeholder="绮樿创涔板璇㈢洏鍐呭... (Ctrl+Enter 鍙戦€?" onkeydown="if(event.key==='Enter'&&event.ctrlKey){event.preventDefault();sendMessage();}"></textarea>
+                    <button class="send-btn" id="sendBtn" onclick="sendMessage()">鍙戦€?/button>
                 </div>
             </div>
         </div>
     </div>
-    <div class="modal-overlay" id="uploadKBModal"><div class="modal"><h3>上传知识库文件</h3><input type="file" id="kbFileInput" accept=".txt,.md" style="margin-bottom:12px;"><textarea id="kbContentInput" placeholder="或粘贴内容..."></textarea><input type="text" id="kbFilenameInput" placeholder="文件名" style="width:100%;padding:8px 12px;border:1px solid #ddd;border-radius:6px;margin-top:8px;font-size:13px;"><div class="modal-actions"><button class="modal-btn" onclick="closeModal('uploadKBModal')">取消</button><button class="modal-btn primary" onclick="uploadKB()">保存</button></div></div></div>
-    <div class="modal-overlay" id="createKBModal"><div class="modal"><h3>新建知识库文档</h3><input type="text" id="newKBName" placeholder="文档名" style="width:100%;padding:8px 12px;border:1px solid #ddd;border-radius:6px;margin-bottom:12px;font-size:13px;"><textarea id="newKBContent" placeholder="输入知识库内容..."></textarea><div class="modal-actions"><button class="modal-btn" onclick="closeModal('createKBModal')">取消</button><button class="modal-btn primary" onclick="createKB()">创建</button></div></div></div>
+    <div class="modal-overlay" id="uploadKBModal"><div class="modal"><h3>涓婁紶鐭ヨ瘑搴撴枃浠?/h3><input type="file" id="kbFileInput" accept=".txt,.md" style="margin-bottom:12px;"><textarea id="kbContentInput" placeholder="鎴栫矘璐村唴瀹?.."></textarea><input type="text" id="kbFilenameInput" placeholder="鏂囦欢鍚? style="width:100%;padding:8px 12px;border:1px solid #ddd;border-radius:6px;margin-top:8px;font-size:13px;"><div class="modal-actions"><button class="modal-btn" onclick="closeModal('uploadKBModal')">鍙栨秷</button><button class="modal-btn primary" onclick="uploadKB()">淇濆瓨</button></div></div></div>
+    <div class="modal-overlay" id="createKBModal"><div class="modal"><h3>鏂板缓鐭ヨ瘑搴撴枃妗?/h3><input type="text" id="newKBName" placeholder="鏂囨。鍚? style="width:100%;padding:8px 12px;border:1px solid #ddd;border-radius:6px;margin-bottom:12px;font-size:13px;"><textarea id="newKBContent" placeholder="杈撳叆鐭ヨ瘑搴撳唴瀹?.."></textarea><div class="modal-actions"><button class="modal-btn" onclick="closeModal('createKBModal')">鍙栨秷</button><button class="modal-btn primary" onclick="createKB()">鍒涘缓</button></div></div></div>
     <div class="toast" id="toast"></div>
     <script>
         let currentCustomerId='';
@@ -180,8 +180,8 @@
         function renderSessionList(){
             const s=getSessions();const list=document.getElementById('sessionList');
             const keys=Object.keys(s);
-            if(!keys.length){list.innerHTML='<div style="text-align:center;color:#555;font-size:12px;padding:20px;">暂无会话</div>';return;}
-            list.innerHTML=keys.map(k=>`<div class="session-item ${k===currentCustomerId?'active':''}" onclick="switchToSession('${k}')"><div class="sid">${k}</div><div class="smeta">${s[k].messages.length}条消息</div><button class="sdel" onclick="event.stopPropagation();deleteSession('${k}')">✕</button></div>`).join('');
+            if(!keys.length){list.innerHTML='<div style="text-align:center;color:#555;font-size:12px;padding:20px;">鏆傛棤浼氳瘽</div>';return;}
+            list.innerHTML=keys.map(k=>`<div class="session-item ${k===currentCustomerId?'active':''}" onclick="switchToSession('${k}')"><div class="sid">${k}</div><div class="smeta">${s[k].messages.length}鏉℃秷鎭?/div><button class="sdel" onclick="event.stopPropagation();deleteSession('${k}')">鉁?/button></div>`).join('');
         }
 
         function createNewSession(){
@@ -189,28 +189,28 @@
             if(!id){id='customer-'+Date.now().toString(36);document.getElementById('customerIdInput').value=id;}
             switchToSession(id);
         }
-        function switchSession(){const id=document.getElementById('customerIdInput').value.trim();if(!id){toast('请输入客户ID');return;}switchToSession(id);}
+        function switchSession(){const id=document.getElementById('customerIdInput').value.trim();if(!id){toast('璇疯緭鍏ュ鎴稩D');return;}switchToSession(id);}
         function switchToSession(id){
             currentCustomerId=id;document.getElementById('customerIdInput').value=id;
             document.getElementById('currentCustomerLabel').textContent=id;
             const s=getSessions();currentSession=s[id]||{messages:[]};renderMessages();renderSessionList();
         }
-        function deleteSession(id){if(!confirm('确定删除？'))return;const s=getSessions();delete s[id);saveSessions(s);if(id===currentCustomerId){currentCustomerId='';currentSession={messages:[]};document.getElementById('currentCustomerLabel').textContent='未选择客户';renderMessages();}renderSessionList();}
-        function clearCurrentSession(){if(!currentCustomerId){toast('请先选择客户');return;}deleteSession(currentCustomerId);}
+        function deleteSession(id){if(!confirm('纭畾鍒犻櫎锛?))return;const s=getSessions();delete s[id);saveSessions(s);if(id===currentCustomerId){currentCustomerId='';currentSession={messages:[]};document.getElementById('currentCustomerLabel').textContent='鏈€夋嫨瀹㈡埛';renderMessages();}renderSessionList();}
+        function clearCurrentSession(){if(!currentCustomerId){toast('璇峰厛閫夋嫨瀹㈡埛');return;}deleteSession(currentCustomerId);}
 
         function renderMessages(){
             const area=document.getElementById('messagesArea');
-            if(!currentSession.messages.length){area.innerHTML='<div class="message system"><div class="msg-bubble">在下方输入框粘贴买家询盘，AI将生成专业回复</div></div>';return;}
+            if(!currentSession.messages.length){area.innerHTML='<div class="message system"><div class="msg-bubble">鍦ㄤ笅鏂硅緭鍏ユ绮樿创涔板璇㈢洏锛孉I灏嗙敓鎴愪笓涓氬洖澶?/div></div>';return;}
             area.innerHTML=currentSession.messages.map(m=>{
                 if(m.role==='system')return'';
-                return`<div class="msg ${m.role}"><div class="msg-label">${m.role==='user'?'买家询盘':'AI回复'}</div><div class="msg-bubble">${esc(m.content)}</div></div>`;
+                return`<div class="msg ${m.role}"><div class="msg-label">${m.role==='user'?'涔板璇㈢洏':'AI鍥炲'}</div><div class="msg-bubble">${esc(m.content)}</div></div>`;
             }).join('');
             area.scrollTop=area.scrollHeight;
         }
 
         async function sendMessage(){
             const input=document.getElementById('inputArea');const text=input.value.trim();
-            if(!text)return;if(!currentCustomerId){toast('请先选择客户');return;}
+            if(!text)return;if(!currentCustomerId){toast('璇峰厛閫夋嫨瀹㈡埛');return;}
             currentSession.messages.push({role:'user',content:text});renderMessages();input.value='';
             document.getElementById('typingIndicator').classList.add('show');document.getElementById('sendBtn').disabled=true;
             try{
@@ -218,21 +218,21 @@
                     body:JSON.stringify({customerId:currentCustomerId,inquiry:text,platform:document.getElementById('platform').value,lang:document.getElementById('replyLang').value,tone:document.getElementById('tone').value,priceRange:document.getElementById('priceRange').value,model:document.getElementById('modelSelect').value,knowledgeBase:getKBContent()})});
                 const data=await res.json();
                 if(res.ok){currentSession.messages.push({role:'assistant',content:data.reply});const s=getSessions();s[currentCustomerId]=currentSession;saveSessions(s);renderMessages();renderSessionList();}
-                else{toast('生成失败: '+(data.error||''));currentSession.messages.pop();renderMessages();}
-            }catch(e){toast('连接失败');currentSession.messages.pop();renderMessages();}
+                else{toast('鐢熸垚澶辫触: '+(data.error||''));currentSession.messages.pop();renderMessages();}
+            }catch(e){toast('杩炴帴澶辫触');currentSession.messages.pop();renderMessages();}
             finally{document.getElementById('typingIndicator').classList.remove('show');document.getElementById('sendBtn').disabled=false;}
         }
 
         function quickAction(type){
-            if(!currentCustomerId){toast('请先选择客户');return;}
-            const p={payment:'请回复买家关于付款方式的询问，包括T/T、L/C、Trade Assurance',shipping:'请回复买家关于物流方案的问题，海运/空运/DDP',sample:'请回复买家关于寄样的问题',moq:'请回复买家关于起订量的问题，首次合作可灵活',oem:'请回复买家关于OEM/ODM定制的问题'};
+            if(!currentCustomerId){toast('璇峰厛閫夋嫨瀹㈡埛');return;}
+            const p={payment:'璇峰洖澶嶄拱瀹跺叧浜庝粯娆炬柟寮忕殑璇㈤棶锛屽寘鎷琓/T銆丩/C銆乀rade Assurance',shipping:'璇峰洖澶嶄拱瀹跺叧浜庣墿娴佹柟妗堢殑闂锛屾捣杩?绌鸿繍/DDP',sample:'璇峰洖澶嶄拱瀹跺叧浜庡瘎鏍风殑闂',moq:'璇峰洖澶嶄拱瀹跺叧浜庤捣璁㈤噺鐨勯棶棰橈紝棣栨鍚堜綔鍙伒娲?,oem:'璇峰洖澶嶄拱瀹跺叧浜嶰EM/ODM瀹氬埗鐨勯棶棰?};
             document.getElementById('inputArea').value=p[type]||'';document.getElementById('inputArea').focus();
         }
 
         function renderKBList(){
             const list=document.getElementById('kbList');
-            if(!kbFiles.length){list.innerHTML='<div style="text-align:center;color:#555;font-size:11px;padding:10px;">暂无知识库</div>';return;}
-            list.innerHTML=kbFiles.map((f,i)=>`<div class="kb-item"><span class="kname">📄 ${f.name}</span><span class="ksize">${(f.content.length/1024).toFixed(1)}KB</span><button class="kdel" onclick="deleteKB(${i})">✕</button></div>`).join('');
+            if(!kbFiles.length){list.innerHTML='<div style="text-align:center;color:#555;font-size:11px;padding:10px;">鏆傛棤鐭ヨ瘑搴?/div>';return;}
+            list.innerHTML=kbFiles.map((f,i)=>`<div class="kb-item"><span class="kname">馃搫 ${f.name}</span><span class="ksize">${(f.content.length/1024).toFixed(1)}KB</span><button class="kdel" onclick="deleteKB(${i})">鉁?/button></div>`).join('');
         }
         function showUploadKB(){document.getElementById('uploadKBModal').classList.add('show');}
         function showCreateKB(){document.getElementById('createKBModal').classList.add('show');}
@@ -241,17 +241,17 @@
             const fi=document.getElementById('kbFileInput');const ci=document.getElementById('kbContentInput');const ni=document.getElementById('kbFilenameInput');
             let name=ni.value.trim(),content=ci.value.trim();
             if(fi.files.length>0){name=name||fi.files[0].name;content=await fi.files[0].text();}
-            if(!name||!content){toast('请提供文件名和内容');return;}
-            kbFiles.push({name,content});localStorage.setItem('kb_files',JSON.stringify(kbFiles));renderKBList();closeModal('uploadKBModal');fi.value='';ci.value='';ni.value='';toast('知识库已更新');
+            if(!name||!content){toast('璇锋彁渚涙枃浠跺悕鍜屽唴瀹?);return;}
+            kbFiles.push({name,content});localStorage.setItem('kb_files',JSON.stringify(kbFiles));renderKBList();closeModal('uploadKBModal');fi.value='';ci.value='';ni.value='';toast('鐭ヨ瘑搴撳凡鏇存柊');
         }
         function createKB(){
             const n=document.getElementById('newKBName').value.trim(),c=document.getElementById('newKBContent').value.trim();
-            if(!n||!c){toast('请填写');return;}
-            kbFiles.push({name:n,content:c});localStorage.setItem('kb_files',JSON.stringify(kbFiles));renderKBList();closeModal('createKBModal');document.getElementById('newKBName').value='';document.getElementById('newKBContent').value='';toast('文档已创建');
+            if(!n||!c){toast('璇峰～鍐?);return;}
+            kbFiles.push({name:n,content:c});localStorage.setItem('kb_files',JSON.stringify(kbFiles));renderKBList();closeModal('createKBModal');document.getElementById('newKBName').value='';document.getElementById('newKBContent').value='';toast('鏂囨。宸插垱寤?);
         }
-        function deleteKB(i){if(!confirm('确定删除？'))return;kbFiles.splice(i,1);localStorage.setItem('kb_files',JSON.stringify(kbFiles));renderKBList();}
+        function deleteKB(i){if(!confirm('纭畾鍒犻櫎锛?))return;kbFiles.splice(i,1);localStorage.setItem('kb_files',JSON.stringify(kbFiles));renderKBList();}
 
-        function copyLastReply(){const msgs=currentSession.messages.filter(m=>m.role==='assistant');if(!msgs.length){toast('没有可复制的回复');return;}navigator.clipboard.writeText(msgs[msgs.length-1].content).then(()=>toast('已复制'));}
+        function copyLastReply(){const msgs=currentSession.messages.filter(m=>m.role==='assistant');if(!msgs.length){toast('娌℃湁鍙鍒剁殑鍥炲');return;}navigator.clipboard.writeText(msgs[msgs.length-1].content).then(()=>toast('宸插鍒?));}
         function esc(t){return(t||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');}
         function toast(m){const t=document.getElementById('toast');t.textContent=m;t.classList.add('show');setTimeout(()=>t.classList.remove('show'),2000);}
     </script>
