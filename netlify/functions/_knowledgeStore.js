@@ -1,10 +1,19 @@
 const fs = require('fs');
 const path = require('path');
-const { getStore } = require('@netlify/blobs');
 
 const STORE_NAME = 'inquiry-assistant';
 const STORE_KEY = 'product-knowledge-v1';
 const LOCAL_DATA_PATH = path.join(__dirname, '..', '..', 'knowledge', 'cloud-knowledge.json');
+
+let blobsModulePromise;
+
+async function getBlobsStore() {
+    if (!blobsModulePromise) {
+        blobsModulePromise = import('@netlify/blobs');
+    }
+    const { getStore } = await blobsModulePromise;
+    return getStore(STORE_NAME);
+}
 
 const DEFAULT_PROFILES = {
     sculpture: {
@@ -68,12 +77,12 @@ function ensureLocalDirectory() {
 }
 
 async function readFromBlobs() {
-    const store = getStore(STORE_NAME);
+    const store = await getBlobsStore();
     return store.get(STORE_KEY, { type: 'json' });
 }
 
 async function writeToBlobs(data) {
-    const store = getStore(STORE_NAME);
+    const store = await getBlobsStore();
     await store.setJSON(STORE_KEY, data);
 }
 
