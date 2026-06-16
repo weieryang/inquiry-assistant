@@ -83,7 +83,7 @@ exports.handler = async (event) => {
 
     try {
         if (event.httpMethod === 'GET') {
-            const data = await readKnowledgeData();
+            const data = await readKnowledgeData(event);
             return json(200, headers, data);
         }
 
@@ -106,7 +106,7 @@ exports.handler = async (event) => {
                 return json(400, headers, { error: 'content is required and must be 24000 characters or less' });
             }
 
-            const data = await writeKnowledgeProfile(category, { content });
+            const data = await writeKnowledgeProfile(category, { content }, event);
             return json(200, headers, data);
         }
 

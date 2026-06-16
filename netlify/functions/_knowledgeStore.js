@@ -7,11 +7,14 @@ const LOCAL_DATA_PATH = path.join(__dirname, '..', '..', 'knowledge', 'cloud-kno
 
 let blobsModulePromise;
 
-async function getBlobsStore() {
+async function getBlobsStore(event) {
     if (!blobsModulePromise) {
         blobsModulePromise = import('@netlify/blobs');
     }
-    const { getStore } = await blobsModulePromise;
+    const { connectLambda, getStore } = await blobsModulePromise;
+    if (event) {
+        connectLambda(event);
+    }
     return getStore(STORE_NAME);
 }
 
@@ -76,13 +79,13 @@ function ensureLocalDirectory() {
     fs.mkdirSync(path.dirname(LOCAL_DATA_PATH), { recursive: true });
 }
 
-async function readFromBlobs() {
-    const store = await getBlobsStore();
+async function readFromBlobs(event) {
+    const store = await getBlobsStore(event);
     return store.get(STORE_KEY, { type: 'json' });
 }
 
-async function writeToBlobs(data) {
-    const store = await getBlobsStore();
+async function writeToBlobs(data, event) {
+    const store = await getBlobsStore(event);
     await store.setJSON(STORE_KEY, data);
 }
 
@@ -96,9 +99,9 @@ function writeToFile(data) {
     fs.writeFileSync(LOCAL_DATA_PATH, JSON.stringify(data, null, 2), 'utf8');
 }
 
-async function readKnowledgeData() {
+async function readKnowledgeData(event) {
     try {
-        const data = await readFromBlobs();
+        const data = await readFromBlobs(event);
         return {
             profiles: normalizeProfiles(data || cloneDefaults()),
             storage: 'netlify-blobs'
@@ -112,14 +115,14 @@ async function readKnowledgeData() {
     }
 }
 
-async function writeKnowledgeProfile(id, updates) {
+async function writeKnowledgeProfile(id, updates, event) {
     if (!DEFAULT_PROFILES[id]) {
         const error = new Error('Unknown knowledge category');
         error.statusCode = 400;
         throw error;
     }
 
-    const data = await readKnowledgeData();
+    const data = await readKnowledgeData(event);
     const profiles = normalizeProfiles(data);
     profiles[id] = normalizeProfile(id, {
         ...profiles[id],
@@ -130,7 +133,7 @@ async function writeKnowledgeProfile(id, updates) {
     const payload = { profiles };
 
     if (data.storage === 'netlify-blobs') {
-        await writeToBlobs(payload);
+        await writeToBlobs(payload, event);
     } else {
         writeToFile(payload);
     }
@@ -141,8 +144,8 @@ async function writeKnowledgeProfile(id, updates) {
     };
 }
 
-async function getKnowledgeText(id) {
-    const data = await readKnowledgeData();
+async function getKnowledgeText(id, event) {
+    const data = await readKnowledgeData(event);
     const profile = data.profiles[id] || data.profiles.sculpture;
     return {
         profile,

@@ -257,7 +257,7 @@ exports.handler = async (event) => {
         ? (process.env.DEEPSEEK_MODEL_PRO || 'deepseek-v4-pro')
         : (process.env.DEEPSEEK_MODEL_FLASH || 'deepseek-v4-flash');
 
-    const cloudKnowledge = await getKnowledgeText(validated.knowledgeCategory);
+    const cloudKnowledge = await getKnowledgeText(validated.knowledgeCategory, event);
     const mergedKnowledge = [
         `Active product knowledge: ${cloudKnowledge.profile.name}`,
         cloudKnowledge.text,
