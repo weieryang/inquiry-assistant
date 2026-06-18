@@ -8,6 +8,7 @@ const {
     readKnowledgeData,
     writeKnowledgeProfile
 } = require('./netlify/functions/_knowledgeStore');
+const { validateConversationHistory } = require('./netlify/functions/_conversation');
 
 const app = express();
 const PORT = process.env.PORT || 3000;
@@ -76,6 +77,19 @@ function requireAccessToken(req, res, next) {
     }
 
     res.status(401).json({ error: 'Access token required' });
+}
+
+function requireAdminToken(req, res, next) {
+    const requiredToken = process.env.KNOWLEDGE_ADMIN_TOKEN;
+    if (!requiredToken) {
+        next();
+        return;
+    }
+    if ((req.get('x-admin-token') || '') === requiredToken) {
+        next();
+        return;
+    }
+    res.status(403).json({ error: 'Knowledge administrator token required' });
 }
 
 function buildSystemPrompt({ knowledgeBase, platform, lang, tone, priceRange, replySkill }) {
@@ -180,6 +194,7 @@ function validateGenerateBody(body) {
     const knowledgeBase = String(body.knowledgeBase || '');
     const conversationContext = String(body.conversationContext || '');
     const priceRange = String(body.priceRange || '').trim();
+    const conversationHistory = validateConversationHistory(body.conversationHistory);
 
     if (!/^[a-zA-Z0-9_-]{1,80}$/.test(customerId)) {
         errors.push('customerId must use 1-80 letters, numbers, underscores, or hyphens');
@@ -202,12 +217,23 @@ function validateGenerateBody(body) {
     if (priceRange.length > 200) {
         errors.push('priceRange must be 200 characters or less');
     }
+    errors.push(...conversationHistory.errors);
 
     const replySkill = requestedReplySkill === 'auto'
         ? inferReplySkill(`${inquiry}\n${conversationContext}`)
         : requestedReplySkill;
 
-    return { errors, customerId, inquiry, knowledgeCategory, replySkill, knowledgeBase, conversationContext, priceRange };
+    return {
+        errors,
+        customerId,
+        inquiry,
+        knowledgeCategory,
+        replySkill,
+        knowledgeBase,
+        conversationContext,
+        conversationHistory: conversationHistory.history,
+        priceRange
+    };
 }
 
 app.post('/api/generate', requireAccessToken, async (req, res) => {
@@ -239,6 +265,7 @@ app.post('/api/generate', requireAccessToken, async (req, res) => {
             modelChoice: req.body.model,
             messages: [
                 { role: 'system', content: systemPrompt },
+                ...validated.conversationHistory,
                 { role: 'user', content: validated.inquiry }
             ]
         });
@@ -265,7 +292,7 @@ app.get('/api/knowledge', requireAccessToken, async (req, res) => {
     }
 });
 
-app.put('/api/knowledge', requireAccessToken, async (req, res) => {
+app.put('/api/knowledge', requireAccessToken, requireAdminToken, async (req, res) => {
     try {
         const category = String(req.body.category || '').trim();
         const content = String(req.body.content || '').trim();

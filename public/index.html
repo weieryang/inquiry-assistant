@@ -4,6 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>询盘回复助手 - 云端知识库</title>
+    <script src="/local-data.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js" defer></script>
     <style>
         :root {
@@ -60,6 +61,12 @@
         .knowledge {
             border-right: 0;
             border-left: 1px solid var(--line);
+        }
+
+        .side {
+            overflow-y: auto;
+            overflow-x: hidden;
+            scrollbar-gutter: stable;
         }
 
         .brand {
@@ -275,10 +282,11 @@
         }
 
         .session-list {
-            min-height: 0;
+            min-height: 54px;
+            max-height: 240px;
             overflow: auto;
             padding: 10px;
-            flex: 1;
+            flex: 0 0 auto;
         }
 
         .session-item {
@@ -317,6 +325,24 @@
             background: transparent;
             font-size: 12px;
             font-weight: 800;
+        }
+
+        .data-actions {
+            display: grid;
+            grid-template-columns: repeat(2, minmax(0, 1fr));
+            gap: 8px;
+        }
+
+        .data-actions .btn {
+            width: 100%;
+            padding: 0 8px;
+        }
+
+        .local-data-note {
+            margin: 9px 0 0;
+            color: var(--muted);
+            font-size: 11px;
+            line-height: 1.55;
         }
 
         .main {
@@ -585,6 +611,45 @@
             font-size: 12px;
         }
 
+        dialog {
+            width: min(430px, calc(100vw - 32px));
+            padding: 0;
+            border: 1px solid var(--line-strong);
+            border-radius: var(--radius);
+            color: var(--ink);
+            background: #ffffff;
+            box-shadow: 0 30px 80px rgba(23, 32, 51, 0.26);
+        }
+
+        dialog::backdrop {
+            background: rgba(23, 32, 51, 0.42);
+            backdrop-filter: blur(3px);
+        }
+
+        .dialog-body {
+            display: grid;
+            gap: 14px;
+            padding: 20px;
+        }
+
+        .dialog-body h2 {
+            margin: 0;
+            font-size: 18px;
+        }
+
+        .dialog-body p {
+            margin: 0;
+            color: var(--muted);
+            font-size: 13px;
+            line-height: 1.6;
+        }
+
+        .dialog-actions {
+            display: flex;
+            justify-content: flex-end;
+            gap: 8px;
+        }
+
         .toast {
             position: fixed;
             right: 18px;
@@ -690,6 +755,18 @@
             <div class="session-list" id="sessionList"></div>
 
             <div class="section">
+                <p class="section-title">本地数据</p>
+                <div class="data-actions">
+                    <button class="btn" onclick="exportAllData()">导出全部</button>
+                    <button class="btn" onclick="exportCurrentCustomer()">导出当前</button>
+                    <button class="btn" onclick="openImportPicker()">导入数据包</button>
+                    <button class="btn" onclick="showBackupStatus()">存储状态</button>
+                </div>
+                <input class="hidden-file" id="backupFile" type="file" accept=".xunpan-backup,application/json" onchange="importBackupFile(event)">
+                <p class="local-data-note">客户会话只保存在当前浏览器。数据包采用密码加密，换电脑或交接客户时使用。</p>
+            </div>
+
+            <div class="section">
                 <p class="section-title">回复设置</p>
                 <div class="field">
                     <label for="platform">平台</label>
@@ -766,6 +843,13 @@
                 <p class="knowledge-desc" id="knowledgeDesc">维护当前产品的回复依据，保存后团队电脑都会使用同一份数据。</p>
             </div>
             <div class="knowledge-body">
+                <div class="field">
+                    <label for="adminToken">知识库管理员口令</label>
+                    <div class="row">
+                        <input class="control" type="password" id="adminToken" placeholder="只有维护知识库时需要">
+                        <button class="btn" onclick="saveAdminToken()">保存</button>
+                    </div>
+                </div>
                 <textarea id="knowledgeEditor" placeholder="填写产品范围、材质、规格、报价口径、FAQ、交期、包装、认证、常见追问等。"></textarea>
                 <div class="knowledge-status" id="knowledgeStatus"></div>
                 <div class="row">
@@ -777,6 +861,18 @@
     </div>
 
     <div class="toast" id="toast"></div>
+
+    <dialog id="passwordDialog">
+        <form class="dialog-body" method="dialog" onsubmit="submitPasswordDialog(event)">
+            <h2 id="passwordDialogTitle">数据包密码</h2>
+            <p id="passwordDialogDesc">请输入密码。</p>
+            <input class="control" id="backupPassword" type="password" autocomplete="new-password" placeholder="至少 8 位">
+            <div class="dialog-actions">
+                <button class="btn" type="button" onclick="cancelPasswordDialog()">取消</button>
+                <button class="btn primary" type="submit">确认</button>
+            </div>
+        </form>
+    </dialog>
 
     <script>
         const PRODUCTS = {
@@ -842,21 +938,44 @@
         };
 
         const ACCESS_TOKEN_KEY = 'inquiry_access_token';
+        const ADMIN_TOKEN_KEY = 'inquiry_admin_token';
         const ACTIVE_CATEGORY_KEY = 'inquiry_active_category';
-        const SESSION_KEY = 'inquiry_sessions_v3';
+        const PREFERENCES_KEY = 'inquiry_preferences_v1';
 
         let activeCategory = localStorage.getItem(ACTIVE_CATEGORY_KEY) || 'sculpture';
         let activeSkill = 'auto';
         let currentCustomerId = '';
         let currentSession = { messages: [], documentContext: '' };
+        let sessionCache = {};
         let knowledgeProfiles = {};
         let storageMode = 'loading';
         let knowledgeDirty = false;
+        let passwordDialogResolver = null;
+        let passwordDialogMinLength = 1;
 
         init();
 
-        function init() {
+        async function init() {
             document.getElementById('accessToken').value = localStorage.getItem(ACCESS_TOKEN_KEY) || '';
+            document.getElementById('adminToken').value = localStorage.getItem(ADMIN_TOKEN_KEY) || '';
+            document.getElementById('passwordDialog').addEventListener('cancel', event => {
+                event.preventDefault();
+                cancelPasswordDialog();
+            });
+            restorePreferences();
+            bindPreferenceSaving();
+
+            try {
+                await LocalDataStore.openDatabase();
+                const migration = await LocalDataStore.migrateLegacySessions();
+                await reloadSessionCache();
+                if (migration.migrated) {
+                    toast(`已迁移 ${migration.migrated} 个旧客户会话到本地数据库`);
+                }
+            } catch (error) {
+                toast('本地数据库初始化失败：' + error.message);
+            }
+
             renderProductSwitch();
             renderSessionList();
             renderMessages();
@@ -864,10 +983,14 @@
             loadKnowledge();
         }
 
-        function apiHeaders() {
+        function apiHeaders(includeAdmin = false) {
             const headers = { 'Content-Type': 'application/json' };
             const token = (localStorage.getItem(ACCESS_TOKEN_KEY) || '').trim();
             if (token) headers['X-App-Token'] = token;
+            if (includeAdmin) {
+                const adminToken = (localStorage.getItem(ADMIN_TOKEN_KEY) || '').trim();
+                if (adminToken) headers['X-Admin-Token'] = adminToken;
+            }
             return headers;
         }
 
@@ -877,6 +1000,62 @@
             else localStorage.removeItem(ACCESS_TOKEN_KEY);
             toast('口令已保存');
             loadKnowledge();
+        }
+
+        function saveAdminToken() {
+            const token = document.getElementById('adminToken').value.trim();
+            if (token) localStorage.setItem(ADMIN_TOKEN_KEY, token);
+            else localStorage.removeItem(ADMIN_TOKEN_KEY);
+            toast('管理员口令已保存在当前浏览器');
+        }
+
+        function collectPreferences() {
+            return {
+                activeCategory,
+                platform: document.getElementById('platform').value,
+                replyLang: document.getElementById('replyLang').value,
+                tone: document.getElementById('tone').value,
+                model: document.getElementById('modelSelect').value,
+                priceRange: document.getElementById('priceRange').value
+            };
+        }
+
+        function savePreferences() {
+            localStorage.setItem(PREFERENCES_KEY, JSON.stringify(collectPreferences()));
+        }
+
+        function restorePreferences() {
+            let preferences = {};
+            try {
+                preferences = JSON.parse(localStorage.getItem(PREFERENCES_KEY) || '{}');
+            } catch {
+                preferences = {};
+            }
+            applyPreferences(preferences);
+        }
+
+        function applyPreferences(preferences = {}) {
+            if (PRODUCTS[preferences.activeCategory]) {
+                activeCategory = preferences.activeCategory;
+                localStorage.setItem(ACTIVE_CATEGORY_KEY, activeCategory);
+            }
+            const values = {
+                platform: preferences.platform,
+                replyLang: preferences.replyLang,
+                tone: preferences.tone,
+                modelSelect: preferences.model,
+                priceRange: preferences.priceRange
+            };
+            Object.entries(values).forEach(([id, value]) => {
+                const element = document.getElementById(id);
+                if (element && value !== undefined && value !== null) element.value = value;
+            });
+        }
+
+        function bindPreferenceSaving() {
+            ['platform', 'replyLang', 'tone', 'modelSelect', 'priceRange'].forEach(id => {
+                document.getElementById(id).addEventListener('change', savePreferences);
+            });
         }
 
         function product(id = activeCategory) {
@@ -924,6 +1103,7 @@
             if (knowledgeDirty && !confirm('当前知识库内容还没有保存，确定切换吗？')) return;
             activeCategory = id;
             localStorage.setItem(ACTIVE_CATEGORY_KEY, id);
+            savePreferences();
             knowledgeDirty = false;
             renderProductSwitch();
             renderKnowledgeEditor();
@@ -972,11 +1152,12 @@
             try {
                 const res = await fetch('/api/knowledge', {
                     method: 'PUT',
-                    headers: apiHeaders(),
+                    headers: apiHeaders(true),
                     body: JSON.stringify({ category: activeCategory, content })
                 });
                 const data = await res.json().catch(() => ({}));
                 if (res.status === 401) throw new Error('口令错误或未填写');
+                if (res.status === 403) throw new Error('需要正确的知识库管理员口令');
                 if (!res.ok) throw new Error(data.error || '保存失败');
                 knowledgeProfiles = data.profiles || {};
                 storageMode = data.storage || storageMode;
@@ -1005,31 +1186,34 @@
             document.getElementById('knowledgeStatus').textContent = text;
         }
 
-        function getSessions() {
-            return JSON.parse(localStorage.getItem(SESSION_KEY) || '{}');
+        async function reloadSessionCache() {
+            const sessions = await LocalDataStore.listSessions();
+            sessionCache = Object.fromEntries(sessions.map(session => [session.id, session]));
         }
 
-        function saveSessions(sessions) {
-            localStorage.setItem(SESSION_KEY, JSON.stringify(sessions));
+        async function persistCurrentSession() {
+            if (!currentCustomerId) return;
+            currentSession = await LocalDataStore.putSession(currentCustomerId, currentSession);
+            sessionCache[currentCustomerId] = currentSession;
         }
 
         function isValidCustomerId(id) {
             return /^[a-zA-Z0-9_-]{1,80}$/.test(id);
         }
 
-        function createNewSession() {
+        async function createNewSession() {
             const id = document.getElementById('customerIdInput').value.trim();
             if (!id) {
                 toast('请先输入明确的客户ID，系统只会保存这个ID的数据');
                 return;
             }
-            switchToSession(id);
+            await switchToSession(id);
         }
 
-        function switchSession() {
+        async function switchSession() {
             const id = document.getElementById('customerIdInput').value.trim();
             if (!id) { toast('请输入客户ID'); return; }
-            switchToSession(id);
+            await switchToSession(id);
         }
 
         function requireActiveCustomer() {
@@ -1038,7 +1222,7 @@
             return false;
         }
 
-        function switchToSession(id) {
+        async function switchToSession(id) {
             if (!isValidCustomerId(id)) {
                 toast('客户ID只能包含字母、数字、下划线和短横线');
                 return;
@@ -1046,10 +1230,10 @@
             currentCustomerId = id;
             document.getElementById('customerIdInput').value = id;
             document.getElementById('currentCustomerLabel').textContent = id;
-            const sessions = getSessions();
-            currentSession = sessions[id] || { messages: [], documentContext: '' };
+            currentSession = sessionCache[id] || { messages: [], documentContext: '' };
             currentSession.messages = currentSession.messages || [];
             currentSession.documentContext = currentSession.documentContext || '';
+            if (!sessionCache[id]) await persistCurrentSession();
             document.getElementById('fileHint').textContent = currentSession.documentContext
                 ? '当前客户已绑定对话文档'
                 : '支持 TXT、CSV、Excel；文件只绑定当前客户ID';
@@ -1059,8 +1243,9 @@
         }
 
         function renderSessionList() {
-            const sessions = getSessions();
-            const ids = Object.keys(sessions).filter(isValidCustomerId);
+            const ids = Object.keys(sessionCache)
+                .filter(isValidCustomerId)
+                .sort((left, right) => String(sessionCache[right].updatedAt || '').localeCompare(String(sessionCache[left].updatedAt || '')));
             const list = document.getElementById('sessionList');
             if (!ids.length) {
                 list.innerHTML = '<div class="hint" style="padding:12px;">暂无会话</div>';
@@ -1070,18 +1255,17 @@
                 <button class="session-item ${id === currentCustomerId ? 'active' : ''}" onclick="switchToSession('${id}')">
                     <span>
                         <span class="session-id">${esc(id)}</span><br>
-                        <span class="session-count">${(sessions[id].messages || []).length} 条消息</span>
+                        <span class="session-count">${(sessionCache[id].messages || []).length} 条消息</span>
                     </span>
                     <span class="delete-btn" onclick="event.stopPropagation(); deleteSession('${id}')">删除</span>
                 </button>
             `).join('');
         }
 
-        function deleteSession(id) {
-            if (!confirm('确定删除这个客户会话？')) return;
-            const sessions = getSessions();
-            delete sessions[id];
-            saveSessions(sessions);
+        async function deleteSession(id) {
+            if (!confirm('确定删除这个客户会话？删除后只能通过数据包恢复。')) return;
+            await LocalDataStore.deleteSession(id);
+            delete sessionCache[id];
             if (id === currentCustomerId) {
                 currentCustomerId = '';
                 currentSession = { messages: [], documentContext: '' };
@@ -1093,9 +1277,9 @@
             updateStatusLine();
         }
 
-        function clearCurrentSession() {
+        async function clearCurrentSession() {
             if (!currentCustomerId) { toast('请先选择客户'); return; }
-            deleteSession(currentCustomerId);
+            await deleteSession(currentCustomerId);
         }
 
         function renderMessages() {
@@ -1126,6 +1310,23 @@
             return `AI回复${message.skill ? ' · ' + esc(skill(message.skill).name) : ''}`;
         }
 
+        function buildConversationHistory() {
+            const history = currentSession.messages
+                .filter(message => message.role === 'user' || message.role === 'assistant')
+                .slice(-12)
+                .map(message => ({
+                    role: message.role,
+                    content: String(message.content || '').slice(0, 4000)
+                }));
+
+            let total = history.reduce((sum, message) => sum + message.content.length, 0);
+            while (history.length && total > 12000) {
+                total -= history[0].content.length;
+                history.shift();
+            }
+            return history;
+        }
+
         async function sendMessage() {
             const input = document.getElementById('inputArea');
             const text = input.value.trim();
@@ -1137,6 +1338,7 @@
 
             const detectedSkill = detectReplySkill(text);
             const inquiryText = text || 'Please analyze the uploaded conversation and write the best next reply to the latest buyer message.';
+            const conversationHistory = buildConversationHistory();
             if (text) {
                 currentSession.messages.push({ role: 'user', content: text, skill: detectedSkill });
             }
@@ -1161,7 +1363,8 @@
                         knowledgeCategory: activeCategory,
                         replySkill: 'auto',
                         knowledgeBase: unsavedKnowledge,
-                        conversationContext: currentSession.documentContext || ''
+                        conversationContext: currentSession.documentContext || '',
+                        conversationHistory
                     })
                 });
                 const data = await res.json().catch(() => ({ error: '服务返回异常' }));
@@ -1169,9 +1372,7 @@
                 if (!res.ok) throw new Error(data.error || '生成失败');
 
                 currentSession.messages.push({ role: 'assistant', content: data.reply, skill: data.replySkill || detectedSkill });
-                const sessions = getSessions();
-                sessions[currentCustomerId] = currentSession;
-                saveSessions(sessions);
+                await persistCurrentSession();
                 renderMessages();
                 renderSessionList();
                 updateStatusLine();
@@ -1218,9 +1419,7 @@
                 currentSession.documentName = file.name;
                 currentSession.messages.push({ role: 'analysis', content: analysis.summary });
 
-                const sessions = getSessions();
-                sessions[currentCustomerId] = currentSession;
-                saveSessions(sessions);
+                await persistCurrentSession();
                 document.getElementById('fileHint').textContent = `已绑定：${file.name}`;
                 activeSkill = analysis.skill;
                 if (analysis.category && analysis.category !== activeCategory) {
@@ -1329,6 +1528,165 @@
         function compactLine(value, limit) {
             const text = String(value || '').replace(/\s+/g, ' ').trim();
             return text.length > limit ? text.slice(0, limit - 1) + '...' : text;
+        }
+
+        function requestBackupPassword(title, description, minLength = 1) {
+            const dialog = document.getElementById('passwordDialog');
+            if (!dialog.showModal) {
+                const password = prompt(`${title}\n${description}`);
+                return Promise.resolve(password || null);
+            }
+            if (passwordDialogResolver) {
+                passwordDialogResolver(null);
+            }
+            document.getElementById('passwordDialogTitle').textContent = title;
+            document.getElementById('passwordDialogDesc').textContent = description;
+            document.getElementById('backupPassword').value = '';
+            document.getElementById('backupPassword').placeholder = minLength >= 8 ? '至少 8 位' : '输入数据包密码';
+            passwordDialogMinLength = minLength;
+            dialog.showModal();
+            setTimeout(() => document.getElementById('backupPassword').focus(), 0);
+            return new Promise(resolve => {
+                passwordDialogResolver = resolve;
+            });
+        }
+
+        function submitPasswordDialog(event) {
+            event.preventDefault();
+            const password = document.getElementById('backupPassword').value;
+            if (password.length < passwordDialogMinLength) {
+                toast(`密码至少需要 ${passwordDialogMinLength} 位`);
+                return;
+            }
+            document.getElementById('passwordDialog').close();
+            const resolve = passwordDialogResolver;
+            passwordDialogResolver = null;
+            if (resolve) resolve(password);
+        }
+
+        function cancelPasswordDialog() {
+            document.getElementById('passwordDialog').close();
+            const resolve = passwordDialogResolver;
+            passwordDialogResolver = null;
+            if (resolve) resolve(null);
+        }
+
+        async function exportAllData() {
+            const sessions = Object.values(sessionCache);
+            if (!sessions.length) {
+                toast('当前浏览器还没有客户会话可导出');
+                return;
+            }
+            await exportSessions(sessions, 'all');
+        }
+
+        async function exportCurrentCustomer() {
+            if (!currentCustomerId || !sessionCache[currentCustomerId]) {
+                toast('请先进入需要交接的客户');
+                return;
+            }
+            await exportSessions([sessionCache[currentCustomerId]], `customer:${currentCustomerId}`);
+        }
+
+        async function exportSessions(sessions, scope) {
+            const password = await requestBackupPassword(
+                scope === 'all' ? '导出全部本地数据' : '导出当前客户',
+                '请设置数据包密码。新电脑导入时需要使用同一个密码，系统无法找回。',
+                8
+            );
+            if (!password) return;
+
+            try {
+                const payload = LocalDataStore.createBackupPayload(sessions, collectPreferences(), scope);
+                const encrypted = await LocalDataStore.encryptBackup(payload, password);
+                const suffix = scope === 'all' ? 'all' : currentCustomerId;
+                downloadTextFile(
+                    `xunpan-${suffix}-${new Date().toISOString().slice(0, 10)}.xunpan-backup`,
+                    encrypted
+                );
+                toast(`已导出 ${sessions.length} 个客户的加密数据包`);
+            } catch (error) {
+                toast('导出失败：' + error.message);
+            }
+        }
+
+        function downloadTextFile(fileName, content) {
+            const blob = new Blob([content], { type: 'application/json;charset=utf-8' });
+            const url = URL.createObjectURL(blob);
+            const link = document.createElement('a');
+            link.href = url;
+            link.download = fileName;
+            document.body.appendChild(link);
+            link.click();
+            link.remove();
+            setTimeout(() => URL.revokeObjectURL(url), 0);
+        }
+
+        function openImportPicker() {
+            document.getElementById('backupFile').click();
+        }
+
+        async function importBackupFile(event) {
+            const file = event.target.files && event.target.files[0];
+            if (!file) return;
+            if (file.size > 25 * 1024 * 1024) {
+                toast('数据包不能超过 25MB');
+                event.target.value = '';
+                return;
+            }
+
+            try {
+                const password = await requestBackupPassword(
+                    '导入加密数据包',
+                    `文件：${file.name}。请输入导出时设置的密码。`,
+                    1
+                );
+                if (!password) return;
+                const payload = await LocalDataStore.decryptBackup(await file.text(), password);
+                const confirmed = confirm(
+                    `数据包包含 ${payload.sessions.length} 个客户，导出时间 ${new Date(payload.exportedAt).toLocaleString()}。\n\n` +
+                    '导入会与当前数据合并；同名客户会保留为副本，不会覆盖。是否继续？'
+                );
+                if (!confirmed) return;
+
+                const result = await LocalDataStore.importSessions(payload);
+                if (result.preferences) {
+                    applyPreferences(result.preferences);
+                    savePreferences();
+                }
+                await reloadSessionCache();
+                renderSessionList();
+                renderProductSwitch();
+                const renamedText = result.renamed.length ? `，${result.renamed.length} 个同名客户已重命名` : '';
+                toast(`已导入 ${result.imported.length} 个客户${renamedText}`);
+            } catch (error) {
+                toast('导入失败：' + error.message);
+            } finally {
+                event.target.value = '';
+            }
+        }
+
+        async function showBackupStatus() {
+            try {
+                if (!navigator.storage || !navigator.storage.estimate) {
+                    throw new Error('当前浏览器不支持存储状态查询');
+                }
+                const estimate = await navigator.storage.estimate();
+                const persisted = navigator.storage.persisted ? await navigator.storage.persisted() : false;
+                const persistenceGranted = persisted || (navigator.storage.persist ? await navigator.storage.persist() : false);
+                const used = formatBytes(estimate.usage || 0);
+                const quota = formatBytes(estimate.quota || 0);
+                toast(`本地数据已使用 ${used} / ${quota}；持久存储${persistenceGranted ? '已启用' : '未获浏览器授权'}。仍建议定期导出备份。`);
+            } catch (error) {
+                toast('无法读取浏览器存储状态：' + error.message);
+            }
+        }
+
+        function formatBytes(value) {
+            if (!value) return '0 B';
+            const units = ['B', 'KB', 'MB', 'GB'];
+            const index = Math.min(Math.floor(Math.log(value) / Math.log(1024)), units.length - 1);
+            return `${(value / Math.pow(1024, index)).toFixed(index ? 1 : 0)} ${units[index]}`;
         }
 
         function setSending(isSending) {
