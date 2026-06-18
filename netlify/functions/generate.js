@@ -1,11 +1,12 @@
 const https = require('https');
 const { DEFAULT_PROFILES, getKnowledgeText } = require('./_knowledgeStore');
-
-const DEFAULT_ALLOWED_ORIGINS = [
-    'https://xunpanhuifu.netlify.app',
-    'http://localhost:3000',
-    'http://localhost:8888'
-];
+const { validateConversationHistory } = require('./_conversation');
+const {
+    authorizeTeam,
+    buildHeaders,
+    consumeRateLimit,
+    validateOrigin
+} = require('./_security');
 
 const LIMITS = {
     customerId: 80,
@@ -66,36 +67,6 @@ const REPLY_SKILLS = {
     }
 };
 
-function getAllowedOrigins() {
-    const configured = process.env.ALLOWED_ORIGINS;
-    if (!configured) return DEFAULT_ALLOWED_ORIGINS;
-    return configured.split(',').map(item => item.trim()).filter(Boolean);
-}
-
-function getHeader(headers = {}, name) {
-    const target = name.toLowerCase();
-    const key = Object.keys(headers).find(item => item.toLowerCase() === target);
-    return key ? headers[key] : '';
-}
-
-function buildHeaders(event) {
-    const origin = getHeader(event.headers, 'origin');
-    const allowedOrigins = getAllowedOrigins();
-    const allowAny = allowedOrigins.includes('*');
-    const allowOrigin = allowAny || allowedOrigins.includes(origin)
-        ? (origin || allowedOrigins[0] || '*')
-        : allowedOrigins[0];
-
-    return {
-        'Access-Control-Allow-Origin': allowOrigin,
-        'Access-Control-Allow-Methods': 'POST, OPTIONS',
-        'Access-Control-Allow-Headers': 'Content-Type, Authorization, X-App-Token',
-        'Access-Control-Max-Age': '86400',
-        'Vary': 'Origin',
-        'Content-Type': 'application/json'
-    };
-}
-
 function json(statusCode, headers, body) {
     return { statusCode, headers, body: JSON.stringify(body) };
 }
@@ -108,24 +79,6 @@ function parseBody(event) {
     return JSON.parse(rawBody);
 }
 
-function validateOrigin(event) {
-    const origin = getHeader(event.headers, 'origin');
-    if (!origin) return true;
-    const allowedOrigins = getAllowedOrigins();
-    return allowedOrigins.includes('*') || allowedOrigins.includes(origin);
-}
-
-function validateAccessToken(event) {
-    const requiredToken = process.env.APP_ACCESS_TOKEN;
-    if (!requiredToken) return true;
-
-    const appToken = getHeader(event.headers, 'x-app-token');
-    const auth = getHeader(event.headers, 'authorization');
-    const bearerToken = auth.toLowerCase().startsWith('bearer ') ? auth.slice(7).trim() : '';
-
-    return appToken === requiredToken || bearerToken === requiredToken;
-}
-
 function validatePayload(payload) {
     const errors = [];
     const customerId = String(payload.customerId || '').trim();
@@ -135,6 +88,7 @@ function validatePayload(payload) {
     const priceRange = String(payload.priceRange || '').trim();
     const knowledgeCategory = String(payload.knowledgeCategory || 'sculpture').trim();
     const requestedReplySkill = String(payload.replySkill || 'auto').trim();
+    const conversationHistory = validateConversationHistory(payload.conversationHistory);
 
     if (!/^[a-zA-Z0-9_-]{1,80}$/.test(customerId)) {
         errors.push('customerId must use 1-80 letters, numbers, underscores, or hyphens');
@@ -157,12 +111,23 @@ function validatePayload(payload) {
     if (requestedReplySkill !== 'auto' && !REPLY_SKILLS[requestedReplySkill]) {
         errors.push('replySkill must be auto, quote, sample, logistics, custom, followup, or objection');
     }
+    errors.push(...conversationHistory.errors);
 
     const replySkill = requestedReplySkill === 'auto'
         ? inferReplySkill(`${inquiry}\n${conversationContext}`)
         : requestedReplySkill;
 
-    return { errors, customerId, inquiry, knowledgeBase, conversationContext, knowledgeCategory, priceRange, replySkill };
+    return {
+        errors,
+        customerId,
+        inquiry,
+        knowledgeBase,
+        conversationContext,
+        conversationHistory: conversationHistory.history,
+        knowledgeCategory,
+        priceRange,
+        replySkill
+    };
 }
 
 function inferReplySkill(text) {
@@ -300,7 +265,7 @@ function callDeepSeek({ model, messages, apiKey }) {
 }
 
 exports.handler = async (event) => {
-    const headers = buildHeaders(event);
+    const headers = buildHeaders(event, 'POST, OPTIONS');
 
     if (event.httpMethod === 'OPTIONS') {
         return { statusCode: 200, headers, body: '' };
@@ -314,8 +279,18 @@ exports.handler = async (event) => {
         return json(403, headers, { error: 'Origin not allowed' });
     }
 
-    if (!validateAccessToken(event)) {
-        return json(401, headers, { error: 'Access token required' });
+    const authorization = authorizeTeam(event);
+    if (!authorization.ok) {
+        return json(authorization.statusCode, headers, { error: authorization.error });
+    }
+
+    const rateLimit = consumeRateLimit(event, 'generate', 60, 10 * 60 * 1000);
+    if (!rateLimit.allowed) {
+        return {
+            statusCode: 429,
+            headers: { ...headers, 'Retry-After': String(rateLimit.retryAfter) },
+            body: JSON.stringify({ error: 'Too many requests. Please try again later.' })
+        };
     }
 
     let payload;
@@ -362,6 +337,7 @@ exports.handler = async (event) => {
             apiKey,
             messages: [
                 { role: 'system', content: systemPrompt },
+                ...validated.conversationHistory,
                 { role: 'user', content: validated.inquiry }
             ]
         });

@@ -5,7 +5,8 @@
   "scripts": {
     "dev": "node server.js",
     "start": "node server.js",
-    "check": "node --check server.js && node --check api/generate.js && node --check netlify/functions/_knowledgeStore.js && node --check netlify/functions/generate.js && node --check netlify/functions/knowledge.js"
+    "check": "node --check server.js && node --check api/generate.js && node --check public/local-data.js && node --check netlify/functions/_conversation.js && node --check netlify/functions/_security.js && node --check netlify/functions/_knowledgeStore.js && node --check netlify/functions/generate.js && node --check netlify/functions/knowledge.js",
+    "test": "node --test tests/*.test.js"
   },
   "dependencies": {
     "@netlify/blobs": "^10.1.0",

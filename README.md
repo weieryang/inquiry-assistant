@@ -11,7 +11,10 @@
 - 回复时会按当前产品分类自动带入对应知识。
 - 自动识别 6 类回复策略：报价确认、样品推进、包装物流、定制项目、跟进唤醒、异议处理，不需要业务员手动选择。
 - 支持上传 TXT、CSV、Excel 对话文档，系统会分析最新买家问题并把上下文绑定到当前客户 ID。
-- 客户会话保存在业务员浏览器本地，并按客户 ID 隔离；产品知识库使用云端共享存储。
+- 客户会话保存在业务员浏览器的 IndexedDB，并按客户 ID 隔离；产品知识库使用云端共享存储。
+- 支持把全部客户或单个客户导出为 AES-GCM 加密数据包，在新电脑导入或交接给其他业务员。
+- AI 会携带当前客户最近 12 条对话作为多轮上下文，不读取其他客户的数据。
+- 团队口令用于读取知识和生成回复，独立管理员口令用于修改共享知识库。
 
 ## 知识库模板
 
@@ -33,8 +36,10 @@
 ## 文件结构
 
 - `public/index.html`: Netlify 线上页面。
+- `public/local-data.js`: IndexedDB、本地数据迁移和加密数据包实现。
 - `netlify/functions/generate.js`: 生成回复接口，访问路径为 `/api/generate`。
 - `netlify/functions/knowledge.js`: 云端知识库读写接口，访问路径为 `/api/knowledge`。
+- `netlify/functions/_security.js`: 团队/管理员权限和基础限流。
 - `netlify/functions/_knowledgeStore.js`: Netlify Blobs 存储封装，本地开发时自动回退到文件。
 - `server.js`: 本地 Express 调试入口。
 - `templates/询盘回复知识库模板.xlsx`: 知识库 Excel 模板。
@@ -48,11 +53,14 @@
 DEEPSEEK_API_KEY=sk-...
 ALLOWED_ORIGINS=https://xunpanhuifu.netlify.app
 APP_ACCESS_TOKEN=your-private-passphrase
+KNOWLEDGE_ADMIN_TOKEN=your-separate-admin-passphrase
 ```
 
 `DEEPSEEK_API_KEY` 必填，不能提交到 GitHub。
 
-`APP_ACCESS_TOKEN` 建议设置。设置后，页面左侧“站点口令”输入同一个值，业务员才能读取知识库和生成回复。
+线上环境必须设置 `APP_ACCESS_TOKEN`。页面左侧“站点口令”输入同一个值，业务员才能读取知识库和生成回复。
+
+线上环境必须设置不同的 `KNOWLEDGE_ADMIN_TOKEN`。只有维护知识库的人需要在右侧知识库面板填写，普通业务员不需要知道该口令。
 
 可选模型覆盖：
 
@@ -75,6 +83,7 @@ npm run dev
 
 ```bash
 npm run check
+npm test
 npm audit --audit-level=moderate
 ```
 
@@ -82,6 +91,8 @@ npm audit --audit-level=moderate
 
 线上产品知识库存储在 Netlify Blobs，key 为 `product-knowledge-v1`。本地开发没有 Netlify Blobs 环境时，会写入 `knowledge/cloud-knowledge.json`，该文件不应提交。
 
-上传的对话文档目前在浏览器内解析，不作为团队共享知识库保存；它只会绑定到当前业务员浏览器里的当前客户 ID，用于本次客户会话上下文分析。
+上传的对话文档在浏览器内解析，不作为团队共享知识库保存；它只会绑定到当前业务员浏览器里的当前客户 ID。生成回复时，与当前客户最近对话一起发送给 Netlify Functions 和 DeepSeek。
 
-后续如果需要多人账号、客户资料共享、权限分级、会话全量归档，可以再升级到 Supabase、Neon 或专门 CRM 数据库。
+浏览器缓存被清理时，本地客户数据可能丢失。业务员应定期使用“导出全部”保存加密数据包。导出内容不包含团队口令、管理员口令或 DeepSeek API Key。
+
+后续如果需要自动跨设备同步、经理查看所有客户、团队共享客户资料或审计记录，再升级到带账号的数据库或 CRM。

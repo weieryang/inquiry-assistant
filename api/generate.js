@@ -6,13 +6,21 @@ const REPLY_SKILLS = {
     followup: 'Write a short, polite follow-up that asks the buyer to confirm specification, quantity, destination, and next step.',
     objection: 'Handle price concerns, hesitation, comparison, or missing information professionally without overpromising.'
 };
+const { validateConversationHistory } = require('../netlify/functions/_conversation');
 
 module.exports = async (req, res) => {
-    res.setHeader('Access-Control-Allow-Origin', '*');
+    const allowedOrigin = process.env.ALLOWED_ORIGINS || 'https://xunpanhuifu.netlify.app';
+    res.setHeader('Access-Control-Allow-Origin', allowedOrigin.split(',')[0].trim());
     res.setHeader('Access-Control-Allow-Methods', 'POST, OPTIONS');
-    res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
+    res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization, X-App-Token');
     if (req.method === 'OPTIONS') return res.status(200).end();
     if (req.method !== 'POST') return res.status(405).json({ error: 'Method not allowed' });
+
+    const requiredToken = process.env.APP_ACCESS_TOKEN;
+    const suppliedToken = req.headers['x-app-token'] || '';
+    if (requiredToken && suppliedToken !== requiredToken) {
+        return res.status(401).json({ error: 'Access token required' });
+    }
 
     const {
         customerId,
@@ -29,6 +37,10 @@ module.exports = async (req, res) => {
     if (!customerId || !inquiry) return res.status(400).json({ error: 'Missing customerId or inquiry' });
     const selectedReplySkill = replySkill === 'auto' ? inferReplySkill(`${inquiry}\n${conversationContext}`) : replySkill;
     if (!REPLY_SKILLS[selectedReplySkill]) return res.status(400).json({ error: 'Invalid replySkill' });
+    const conversationHistory = validateConversationHistory(req.body.conversationHistory);
+    if (conversationHistory.errors.length) {
+        return res.status(400).json({ error: 'Invalid conversation history', details: conversationHistory.errors });
+    }
 
     const apiKey = process.env.DEEPSEEK_API_KEY;
     if (!apiKey) return res.status(500).json({ error: 'API key not configured' });
@@ -54,6 +66,7 @@ module.exports = async (req, res) => {
                 model: selectedModel,
                 messages: [
                     { role: 'system', content: systemPrompt },
+                    ...conversationHistory.history,
                     { role: 'user', content: inquiry }
                 ],
                 temperature: 0.7,

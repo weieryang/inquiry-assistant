@@ -1,61 +1,14 @@
 const { readKnowledgeData, writeKnowledgeProfile } = require('./_knowledgeStore');
-
-const DEFAULT_ALLOWED_ORIGINS = [
-    'https://xunpanhuifu.netlify.app',
-    'http://localhost:3000',
-    'http://localhost:8888'
-];
-
-function getAllowedOrigins() {
-    const configured = process.env.ALLOWED_ORIGINS;
-    if (!configured) return DEFAULT_ALLOWED_ORIGINS;
-    return configured.split(',').map(item => item.trim()).filter(Boolean);
-}
-
-function getHeader(headers = {}, name) {
-    const target = name.toLowerCase();
-    const key = Object.keys(headers).find(item => item.toLowerCase() === target);
-    return key ? headers[key] : '';
-}
-
-function buildHeaders(event) {
-    const origin = getHeader(event.headers, 'origin');
-    const allowedOrigins = getAllowedOrigins();
-    const allowAny = allowedOrigins.includes('*');
-    const allowOrigin = allowAny || allowedOrigins.includes(origin)
-        ? (origin || allowedOrigins[0] || '*')
-        : allowedOrigins[0];
-
-    return {
-        'Access-Control-Allow-Origin': allowOrigin,
-        'Access-Control-Allow-Methods': 'GET, PUT, POST, OPTIONS',
-        'Access-Control-Allow-Headers': 'Content-Type, Authorization, X-App-Token',
-        'Access-Control-Max-Age': '86400',
-        'Vary': 'Origin',
-        'Content-Type': 'application/json'
-    };
-}
+const {
+    authorizeAdmin,
+    authorizeTeam,
+    buildHeaders,
+    consumeRateLimit,
+    validateOrigin
+} = require('./_security');
 
 function json(statusCode, headers, body) {
     return { statusCode, headers, body: JSON.stringify(body) };
-}
-
-function validateOrigin(event) {
-    const origin = getHeader(event.headers, 'origin');
-    if (!origin) return true;
-    const allowedOrigins = getAllowedOrigins();
-    return allowedOrigins.includes('*') || allowedOrigins.includes(origin);
-}
-
-function validateAccessToken(event) {
-    const requiredToken = process.env.APP_ACCESS_TOKEN;
-    if (!requiredToken) return true;
-
-    const appToken = getHeader(event.headers, 'x-app-token');
-    const auth = getHeader(event.headers, 'authorization');
-    const bearerToken = auth.toLowerCase().startsWith('bearer ') ? auth.slice(7).trim() : '';
-
-    return appToken === requiredToken || bearerToken === requiredToken;
 }
 
 function parseBody(event) {
@@ -67,7 +20,7 @@ function parseBody(event) {
 }
 
 exports.handler = async (event) => {
-    const headers = buildHeaders(event);
+    const headers = buildHeaders(event, 'GET, PUT, POST, OPTIONS');
 
     if (event.httpMethod === 'OPTIONS') {
         return { statusCode: 200, headers, body: '' };
@@ -77,8 +30,25 @@ exports.handler = async (event) => {
         return json(403, headers, { error: 'Origin not allowed' });
     }
 
-    if (!validateAccessToken(event)) {
-        return json(401, headers, { error: 'Access token required' });
+    const authorization = event.httpMethod === 'GET'
+        ? authorizeTeam(event)
+        : authorizeAdmin(event);
+    if (!authorization.ok) {
+        return json(authorization.statusCode, headers, { error: authorization.error });
+    }
+
+    const rateLimit = consumeRateLimit(
+        event,
+        event.httpMethod === 'GET' ? 'knowledge-read' : 'knowledge-write',
+        event.httpMethod === 'GET' ? 120 : 20,
+        event.httpMethod === 'GET' ? 10 * 60 * 1000 : 60 * 60 * 1000
+    );
+    if (!rateLimit.allowed) {
+        return {
+            statusCode: 429,
+            headers: { ...headers, 'Retry-After': String(rateLimit.retryAfter) },
+            body: JSON.stringify({ error: 'Too many requests. Please try again later.' })
+        };
     }
 
     try {
